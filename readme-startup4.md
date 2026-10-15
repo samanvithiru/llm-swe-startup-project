@@ -1,16 +1,17 @@
-Melder
-1. Solves one problem extremely well: It simplifies spreadsheet analysis while solving the specific problem of inconsistent formulas, incorrect cell references, and calculation errors in complex spreadsheets.
+Dart (AI-Powered Project Management)
 
-2. Target customers or direct access: College students, researchers, data analysts, small businesses, and student organization boards that rely on spreadsheets to track data, budgets, research results, or project progress.
+1. Solves one problem extremely well: It helps teams organize projects while solving the specific problem of unrealistic or inconsistent project plans, including conflicting deadlines, missing task dependencies, and incorrect task sequences.
 
-3. Familiar infrastructure: CSV and Excel parsing, Python (Pandas), spreadsheet formula evaluation, data validation, and basic web backend development.
+2. Target customers or direct access: Student project teams, hackathon groups, computer science courses, software engineering teams, and university student organizations managing projects with multiple tasks and deadlines.
 
-4. Reimagines the problem space: It transforms a standard AI spreadsheet assistant into an AI Spreadsheet Formula Consistency Checker. As users upload or edit spreadsheets, the system analyzes formulas across rows and columns, detects inconsistent calculations, and flags suspicious cell references or unexpected values. For example, if one row calculates a total using the wrong cell reference, the system identifies the inconsistency and suggests the expected formula.
+3. Familiar infrastructure: Task management, directed acyclic graphs (DAGs), graph algorithms, topological sorting, scheduling, and basic web backend development.
 
-5. LLM/Generative model is core: The LLM is essential for interpreting spreadsheet structure, explaining potential errors in natural language, and recommending corrections based on surrounding formulas, column labels, and data patterns. It helps users understand not only what might be wrong but also why the issue matters.
+4. Reimagines the problem space: It transforms a standard AI project management tool into an AI Project Plan Consistency Checker. When teams enter a project description and generate a task list, the system analyzes dependencies and deadlines to identify missing prerequisites, conflicting schedules, and tasks scheduled before their required work is complete. It automatically flags potential problems and recommends changes to make the project plan more realistic and executable.
 
-6. Validation Guardrail: No suggested correction is accepted without validation. The validator independently recalculates supported formulas, compares formulas across similar rows, and checks proposed results against the spreadsheet's underlying data. It flags uncertain cases rather than treating every AI suggestion as correct.
+5. LLM/Generative model is core: The LLM is essential for interpreting natural-language project descriptions, breaking large goals into smaller tasks, identifying potential dependencies, and recommending deadlines and task sequences. It allows users to describe a project in plain English instead of manually constructing an entire project plan.
 
-7. Self-Correction Loop: If the validator detects an incorrect formula, an invalid cell reference, or a mismatch between the suggested correction and the expected result, it feeds the specific error back to the LLM. The LLM generates a revised suggestion, which is checked again before being presented to the user.
+6. Validation Guardrail: No proposed project plan is marked as valid without validation. The validator uses graph algorithms to detect circular dependencies, topological sorting to verify task ordering, and scheduling checks to identify deadline conflicts. It also flags tasks with potentially missing prerequisites or incomplete information instead of assuming the LLM's proposed plan is correct.
 
-8. Deployability: It can be deployed as a web-based spreadsheet analysis tool using a frontend framework such as React, a Python backend, Pandas for data processing, and an LLM API. For a six-week MVP, users could upload CSV or Excel files, view flagged inconsistencies, and review validated correction suggestions without requiring a full spreadsheet editor.
+7. Self-Correction Loop: If the validator detects a circular dependency, an impossible task sequence, or a scheduling conflict, it sends the specific issue back to the LLM. The LLM proposes revised dependencies, task ordering, or deadlines, and the validator checks the updated plan again before presenting it to the user. If the conflict cannot be resolved without additional information, the system asks the user to clarify the affected tasks or deadlines.
+
+8. Deployability: It can be deployed as a web-based project planning application using React for the frontend, Python for the backend, an LLM API for task generation, and graph algorithms for validation. For a six-week MVP, users could enter a project description, generate tasks and dependencies, view them as a dependency graph, and receive validated suggestions for resolving planning conflicts.
