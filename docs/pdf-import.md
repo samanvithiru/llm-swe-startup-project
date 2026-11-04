@@ -38,6 +38,16 @@ The supplied PDF contains **13 pages, 14 dancers per formation, and a 38 × 28-f
 
 F14 contains offstage exit positions, plus faded previous positions inside the stage. The importer keeps the actual exit positions and shows them in red, rather than clipping dancers to the stage or importing their ghosts. F14 is visible in preview but excluded from repair because the existing backend requires all dancers to be inside stage boundaries. The other **12 formations** are selected by default. Offstage choreography needs separate backend support before it can be repaired.
 
+## Ending Bhangra example
+
+The supplied `sway-70-ending-bhangra-formations.pdf` contains 12 formations with 12 dancers each. F0 is an offstage entrance: some dancers share identical positions, so their vector markers and labels overlap. The importer retains each distinct dancer at the original position and flags the geometry rather than guessing or discarding names. F0 is excluded from repair; the remaining 11 formations can be loaded. Original labels F0, F1, F2, F13–F21 are preserved.
+
+The optional original-file regression can be run with:
+
+```bash
+SWAY_BHANGRA_PDF='/path/to/sway-70-ending-bhangra-formations.pdf' python -m pytest tests/test_pdf_import.py -q
+```
+
 ## API and storage
 
 `POST /api/import/sway-pdf` accepts a multipart field named `file`. The response contains:
