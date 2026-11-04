@@ -40,6 +40,8 @@
   </section>
   <section class="panel" aria-label="Formation comparison">
     <div class="legend"><span>Unchanged dancer</span><span class="absent">Unavailable dancer</span><span class="moved">Moved dancer / dashed travel path</span></div>
+    <label>Repair layout<select id="layout" disabled><option value="0">Generate a repair first</option></select></label>
+    <p id="layout-note" class="note">Alternative layouts are available for supported three-column formations.</p>
     <p id="summary" class="note">No repair generated yet.</p>
     <div class="stages"><div><h2>Original</h2><svg class="stage" id="original" role="img" aria-label="Original formation"></svg></div><div><h2>Proposed repair</h2><svg class="stage" id="repaired" role="img" aria-label="Proposed formation"></svg><p id="proposal-note" class="note">Generate a repair to see proposed positions.</p></div></div>
     <div class="table-wrap"><table><caption>Position changes in the selected formation</caption><thead><tr><th>Dancer</th><th>Original (x, y)</th><th>Proposed (x, y)</th><th>Distance</th></tr></thead><tbody id="changes"></tbody></table></div>
@@ -60,6 +62,7 @@ const ns = 'http://www.w3.org/2000/svg';
 const storageKey = 'formationrescue.reviews.v1';
 let routine, result = null, review = null, generation = 0, controller = null, loading = false;
 let requestContext = null;
+let candidates = [];
 const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
 const patterns = [
   ['V', i => [1+(i%6)*1.4, .8+Math.abs(2.5-i%6)*.65+Math.floor(i/6)*2.2]],
@@ -99,6 +102,10 @@ function validateRoutine(value, allowEmptyFormations=false) {
   value.formations.forEach((f,i) => {
     if (!f || typeof f.name!=='string' || !f.name.trim() || !Array.isArray(f.dancers) || (!allowEmptyFormations && !f.dancers.length)) throw Error(`Formation ${i+1} needs a name and at least one dancer.`);
     const seen=new Set();
+    if(i>0){
+      const expected=value.formations[0].dancers.map(p=>p.id).sort();
+      if(JSON.stringify(f.dancers.map(p=>p?.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: dancer roster must match the first formation.`);
+    }
     f.dancers.forEach(p => {
       if (!p || typeof p.id!=='string' || !p.id.trim()) throw Error(`Formation ${i+1}: every dancer needs a nonempty string ID.`);
       if (seen.has(p.id)) throw Error(`Formation ${i+1}: duplicate dancer ID ${p.id}.`);
@@ -111,7 +118,9 @@ function validateRoutine(value, allowEmptyFormations=false) {
 }
 function status(message,error=false) { $('status').textContent=message; $('status').classList.toggle('error',error); }
 function resetProposal(message='Selection changed. Generate a new repair.') {
-  generation++; controller?.abort(); controller=null; loading=false; result=null; review=null;
+  generation++; controller?.abort(); controller=null; loading=false; result=null; review=null; candidates=[];
+  $('layout').replaceChildren(new Option('Generate a repair first','0')); $('layout').disabled=true;
+  $('layout-note').textContent='Alternative layouts are available for supported three-column formations.';
   $('run').disabled=false; $('ai-run').disabled=false; requestContext=null;
   $('ai-status').textContent='Manual preferences work without an AI service.'; $('review-note').value=''; $('review-status').textContent='No review recorded.';
   status(message); refresh();
@@ -146,7 +155,9 @@ function draw(id,formation,original) {
     const absent=id==='original' && p.id===$('missing').value;
     const g=svgNode('g',{});g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${absent?' — unavailable':moved?' — moved':''}`));
     g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,fill:absent?'#bc3434':moved?'#9b5700':'#5458b9'}));
-    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id));svg.append(g);
+    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id.length>3?p.id.slice(0,3)+'…':p.id));
+    if(p.id.length>3)g.append(svgNode('text',{x:p.x*scale,y:p.y*scale-21,'text-anchor':'middle',fill:'#19213b','font-size':11},p.id));
+    svg.append(g);
   }
 }
 function refresh() {
@@ -154,7 +165,7 @@ function refresh() {
   const i=Number($('formation').value), original=routine.formations[i], proposed=result?.routine.formations[i];
   draw('original',original); draw('repaired',proposed,original);
   $('proposal-note').textContent=result ? (result.valid?'Review moved positions and transitions before approval.':'Invalid proposal. Approval is disabled; review the validation errors.') : 'Generate a repair to see proposed positions.';
-  $('summary').textContent=result ? `${result.changed_assignments ?? '—'} moved positions across the routine · total displacement: ${result.total_displacement ?? '—'} stage units` : 'No repair generated yet.';
+  $('summary').textContent=result ? `${result.candidate_label || 'Primary repair'} · ${result.changed_assignments ?? '—'} moved positions across the routine · total displacement: ${result.total_displacement ?? '—'} stage units` : 'No repair generated yet.';
   $('changes').replaceChildren();
   if(proposed) for(const p of original.dancers) {
     const after=proposed.dancers.find(q=>q.id===p.id);
@@ -200,6 +211,35 @@ $('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
 $('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
 $('preference').onchange=()=>resetProposal('Preference changed. Generate a new repair.');
 $('ai-instruction').oninput=()=>resetProposal('Instruction changed. Generate a new repair.');
+// Validate every candidate against the request before allowing review or export.
+function checkRepairedRoutine(value) {
+  validateRoutine(value,true);
+  if(value.stage.width!==routine.stage.width || value.stage.height!==routine.stage.height || value.formations.length!==routine.formations.length)throw Error('Repair changed the stage or formation count.');
+  value.formations.forEach((f,i)=>{
+    const expected=routine.formations[i].dancers.filter(p=>p.id!==$('missing').value).map(p=>p.id).sort();
+    if(f.name!==routine.formations[i].name || JSON.stringify(f.dancers.map(p=>p.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: repair returned an unexpected dancer roster or formation order.`);
+  });
+}
+function geometryErrors(value) {
+  const errors=[];
+  value.formations.forEach((f,fi)=>f.dancers.forEach((p,i)=>{
+    for(const other of f.dancers.slice(i+1))if(distance(p,other)<0.6)errors.push(`Formation ${fi+1}: ${p.id} and ${other.id} too close.`);
+  }));
+  return errors;
+}
+function movementMetrics(value) {
+  let changed=0,total=0;
+  value.formations.forEach((f,i)=>{
+    const before=new Map(routine.formations[i].dancers.map(p=>[p.id,p]));
+    f.dancers.forEach(p=>{const delta=distance(p,before.get(p.id));if(delta>0.00001){changed++;total+=delta;}});
+  });
+  return {changed_assignments:changed,total_displacement:Math.round(total*10000)/10000};
+}
+$('layout').onchange=()=>{
+  const candidate=candidates[Number($('layout').value)];if(!candidate)return;
+  result=candidate;review=null;$('review-note').value='';$('review-status').textContent='Layout changed. No review recorded for this selection.';
+  status(`${result.candidate_label}: ${result.valid?'Geometry checks passed.':'Proposal failed validation.'}${result.note?'\n'+result.note:''}`,!result.valid);refresh();
+};
 const supportedPreferences = ['minimize_changes','preserve_center'];
 async function requestJSON(url,body,signal) {
   const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal,body:JSON.stringify(body)});
@@ -227,14 +267,25 @@ async function generateRepair(useAI=false) {
     if(!supportedPreferences.includes(preference))throw Error('Select a supported repair preference.');
     const data=await requestJSON('/api/repair',{routine,missing:$('missing').value,preference},signal);
     if(version!==generation)return;
-    validateRoutine(data.routine,true);
-    if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || data.routine.formations.length!==routine.formations.length)throw Error('The server returned an unexpected repair response.');
-    // Never enable approval if the absent dancer remains or the roster changes.
-    data.routine.formations.forEach((f,i)=>{
-      const expected=routine.formations[i].dancers.filter(p=>p.id!==$('missing').value).map(p=>p.id).sort();
-      if(JSON.stringify(f.dancers.map(p=>p.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: repair returned an unexpected dancer roster.`);
-    });
-    result=data;requestContext={preference,instruction:useAI?instruction:null};
+    if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || (data.valid && data.errors.length))throw Error('The server returned an unexpected repair response.');
+    checkRepairedRoutine(data.routine);
+    const primaryErrors=geometryErrors(data.routine);
+    if(data.valid && primaryErrors.length)throw Error(primaryErrors.join(' '));
+    requestContext={preference,instruction:useAI?instruction:null};
+    candidates=[{...data,...movementMetrics(data.routine),candidate_label:'Primary repair'}];
+    let skipped=0;
+    for(const option of (Array.isArray(data.alternatives)?data.alternatives:[])){
+      try {
+        if(typeof option.label!=='string' || !Number.isInteger(option.formation_index) || option.formation_index<0 || option.formation_index>=routine.formations.length)throw Error('Malformed alternative');
+        checkRepairedRoutine(option.routine);
+        const errors=geometryErrors(option.routine);if(errors.length)throw Error('Invalid alternative');
+        candidates.push({...data,routine:option.routine,alternatives:[],valid:true,errors:[],...movementMetrics(option.routine),candidate_label:`${option.label} · ${routine.formations[option.formation_index].name}`});
+      } catch {skipped++;}
+    }
+    $('layout').replaceChildren(...candidates.map((candidate,i)=>new Option(candidate.candidate_label,i)));
+    $('layout').value='0';$('layout').disabled=candidates.length<2;
+    $('layout-note').textContent=`${candidates.length-1} alternative layouts available. Metrics and decisions apply to the selected whole-routine proposal.${skipped?' Invalid or malformed alternatives were omitted.':''}`;
+    result=candidates[0];
     status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
     if(useAI)$('ai-status').textContent=`AI selected: ${preference}. Repair received; review its validation status below.`;
   } catch(error) {
