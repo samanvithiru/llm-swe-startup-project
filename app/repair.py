@@ -360,6 +360,97 @@ def repair_staggered(formation, missing):
     return people
 
 
+
+
+def is_three_column_formation(formation: dict) -> bool:
+    """Recognize three evenly spaced vertical columns of four dancers."""
+    columns = {}
+    for dancer in formation["dancers"]:
+        columns.setdefault(dancer["x"], []).append(dancer)
+    if len(columns) != 3 or any(len(col) != 4 for col in columns.values()):
+        return False
+    xs = sorted(columns)
+    if abs((xs[1] - xs[0]) - (xs[2] - xs[1])) > 0.15:
+        return False
+    for col in columns.values():
+        ys = sorted(p["y"] for p in col)
+        gaps = [b - a for a, b in zip(ys, ys[1:])]
+        if min(gaps) < 0.6 or max(gaps) - min(gaps) > 0.15:
+            return False
+    return True
+
+
+def _column_candidates(formation: dict, missing: str, stage: dict) -> list[dict]:
+    """Generate three clean column layouts and assign dancers by minimum cost.
+
+    Each candidate preserves three vertical columns and their original centers.
+    Assignment uses a bitmask dynamic program, avoiding greedy donor choices.
+    """
+    original = formation["dancers"]
+    available = [p for p in original if p["id"] != missing]
+    xs = sorted({p["x"] for p in original})
+    if len(xs) != 3 or len(available) != 11:
+        return []
+
+    columns = {x: sorted((p["y"] for p in original if p["x"] == x)) for x in xs}
+    shapes = [("Balanced 4–3–4", (4, 3, 4)),
+              ("Keep left column smaller", (3, 4, 4)),
+              ("Keep right column smaller", (4, 4, 3))]
+    results = []
+    for label, counts in shapes:
+        slots = []
+        for x, count in zip(xs, counts):
+            ys = columns[x]
+            low, high = ys[0], ys[-1]
+            for i in range(count):
+                slots.append((x, low + (high-low)*i/(count-1)))
+
+        # Minimum-cost one-to-one matching; modest penalty for switching columns.
+        n = len(available)
+        dp = {0: (0.0, ())}
+        for person in available:
+            nxt = {}
+            for mask, (score, path) in dp.items():
+                for j, (x, y) in enumerate(slots):
+                    if mask & (1 << j):
+                        continue
+                    movement = hypot(person["x"]-x, person["y"]-y)
+                    cost = movement + (0.35 if abs(person["x"]-x) > 0.01 else 0)
+                    key = mask | (1 << j)
+                    candidate = (score + cost, path + (j,))
+                    if key not in nxt or candidate[0] < nxt[key][0]:
+                        nxt[key] = candidate
+            dp = nxt
+        _, assignment = dp[(1 << n)-1]
+        assigned = []
+        for person, j in zip(available, assignment):
+            x, y = slots[j]
+            assigned.append({**person, "x": round(x, 4), "y": round(y, 4)})
+        trial = {"stage": stage, "formations": [{"name": formation["name"], "dancers": assigned}]}
+        if validate(trial):
+            continue
+        movement = sum(hypot(p["x"]-o["x"], p["y"]-o["y"])
+                       for p in assigned for o in available if p["id"] == o["id"])
+        changed = sum(hypot(p["x"]-o["x"], p["y"]-o["y"]) >= 0.15
+                      for p in assigned for o in available if p["id"] == o["id"])
+        # Symmetric outside columns get an explicit aesthetic advantage.
+        balance_penalty = 0 if counts == (4, 3, 4) else 2.0
+        score = movement + 0.15 * changed + balance_penalty
+        results.append({"label": label, "dancers": assigned, "score": score})
+    return sorted(results, key=lambda item: item["score"])
+
+
+def repair_three_columns(formation: dict, missing: str) -> list[dict]:
+    """Return the highest-ranked valid column arrangement."""
+    xs = [p["x"] for p in formation["dancers"]]
+    ys = [p["y"] for p in formation["dancers"]]
+    stage = {"width": max(xs)+2, "height": max(ys)+2}
+    candidates = _column_candidates(formation, missing, stage)
+    if candidates:
+        return candidates[0]["dancers"]
+    return [dict(p) for p in formation["dancers"] if p["id"] != missing]
+
+
 def repair_local(
     formation: dict,
     missing: str,
@@ -458,7 +549,9 @@ def repair(routine: dict, missing: str, preference: str = "minimize_changes") ->
     symmetry_repairs = 0
 
     for formation in routine["formations"]:
-        if is_v_formation(formation):
+        if is_three_column_formation(formation):
+            candidate = repair_three_columns(formation, missing)
+        elif is_v_formation(formation):
             candidate = repair_v(formation, missing)
         elif is_diamond_formation(formation):
             candidate = repair_diamond(formation, missing)
@@ -490,8 +583,26 @@ def repair(routine: dict, missing: str, preference: str = "minimize_changes") ->
         result["formations"].append({"name": formation["name"], "dancers": people})
 
     errors = validate(result, missing)
+    # Offer alternative layouts for the currently supported three-column shape.
+    alternatives = []
+    if len(routine["formations"]) > 0:
+        for idx, formation in enumerate(routine["formations"]):
+            if not is_three_column_formation(formation):
+                continue
+            for option in _column_candidates(formation, missing, result["stage"]):
+                alternate = {"stage": dict(result["stage"]),
+                             "formations": [{"name": f["name"],
+                                             "dancers": [dict(p) for p in f["dancers"]]}
+                                            for f in result["formations"]]}
+                alternate["formations"][idx]["dancers"] = option["dancers"]
+                if validate(alternate, missing):
+                    continue
+                alternatives.append({"label": option["label"],
+                                     "routine": alternate, "formation_index": idx})
+            break
     return {
         "routine": result, "valid": not errors, "errors": errors,
+        "alternatives": alternatives,
         "changed_assignments": moved, "total_displacement": round(displacement, 4),
         "removed_dancer": missing, "method": "symmetry-aware formation repair",
         "note": (f"Shape-aware repairs: {symmetry_repairs}. "

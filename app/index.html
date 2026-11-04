@@ -1,377 +1,116 @@
-
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FormationRescue Alpha</title>
-
+<title>FormationRescue — Choreography Preview</title>
 <style>
-body {
-    font-family: system-ui;
-    background: #f5f6fb;
-    color: #19213b;
-    margin: 0;
-}
-
-header {
-    background: #292d64;
-    color: white;
-    padding: 22px 6%;
-}
-
-main {
-    max-width: 1100px;
-    margin: 25px auto;
-    padding: 0 20px;
-}
-
-.panel {
-    background: white;
-    border-radius: 14px;
-    padding: 20px;
-    box-shadow: 0 3px 20px #1111;
-    margin-bottom: 20px;
-}
-
-select, button, textarea {
-    padding: 10px;
-    border-radius: 8px;
-    margin: 5px;
-    font: inherit;
-}
-
-button {
-    background: #494bb4;
-    color: white;
-    border: 0;
-    cursor: pointer;
-}
-
-button:disabled {
-    opacity: 0.6;
-    cursor: wait;
-}
-
-textarea {
-    display: block;
-    width: 95%;
-    min-height: 75px;
-    border: 1px solid #ccd0df;
-}
-
-.stages {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-}
-
-.stage {
-    width: 100%;
-    background: #edf0fa;
-    border: 1px solid #ccd0df;
-    border-radius: 8px;
-}
-
-h2 {
-    margin-top: 0;
-}
-
-.note {
-    color: #60677c;
-    font-size: 14px;
-}
-
-@media(max-width:700px) {
-    .stages {
-        grid-template-columns: 1fr;
-    }
-}
+:root{font-family:system-ui,-apple-system,sans-serif;color:#1b2440;background:#f4f5fb}*{box-sizing:border-box}body{margin:0}header{background:#292d64;color:white;padding:22px max(22px,calc((100% - 1120px)/2))}header h1{margin:0 0 5px;font-size:28px}header p{margin:0;color:#d9dcff}main{max-width:1160px;margin:24px auto;padding:0 18px}.panel{background:white;border-radius:15px;padding:22px;box-shadow:0 3px 20px #1111;margin-bottom:18px}h2{margin:0 0 15px;font-size:20px}.controls{display:flex;flex-wrap:wrap;align-items:end;gap:14px}label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}select,textarea{font:inherit;border:1px solid #cbd0df;border-radius:9px;padding:10px;background:white;color:#1b2440}select{min-width:175px}textarea{width:100%;min-height:80px;resize:vertical}button{font:inherit;border:0;border-radius:9px;background:#494bb4;color:white;padding:11px 17px;cursor:pointer;font-weight:600}button:disabled{opacity:.6;cursor:wait}.note{color:#626c83;font-size:14px;line-height:1.5}.stage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.stage-card h2{margin-bottom:7px}.stage{width:100%;height:auto;display:block;background:#edf0fa;border:1px solid #ccd0df;border-radius:10px}.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:#59647b}.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}.swatch-line{display:inline-block;width:23px;border-top:2px dashed #e39a3a;vertical-align:middle;margin-right:5px}.layout-choices{margin:14px 0;padding:12px;border:1px solid #d9ddec;border-radius:10px;background:#f8f9fe}.layout-choices select{margin-top:6px}.metrics{font-size:14px;color:#39435d;margin-top:12px}.error{color:#ae3434}.success{color:#177a5c}.hint{background:#f1f2ff;padding:12px 14px;border-radius:9px;font-size:14px;color:#49517b;margin-top:12px}@media(max-width:740px){.stage-grid{grid-template-columns:1fr}.controls{align-items:stretch}.controls label,.controls button{width:100%}select{width:100%}}
 </style>
 </head>
-
 <body>
-
-<header>
-    <h1>FormationRescue</h1>
-    <div>Alpha prototype · Single-dancer absence</div>
-</header>
-
+<header><h1>FormationRescue</h1><p>Real choreography examples · Single-dancer absence</p></header>
 <main>
-
 <section class="panel">
-    <h2>Repair a Formation</h2>
-
-    <label>
-        Unavailable dancer
-        <select id="missing"></select>
-    </label>
-
-    <label>
-        Formation
-        <select id="formation"></select>
-    </label>
-
-    <button id="run">Generate baseline repair</button>
-
-    <p id="status" class="note">
-        Select a dancer to compare original and repaired positions.
-    </p>
+<h2>Repair a formation</h2>
+<div class="controls">
+<label>Routine<select id="routineSelect"></select></label>
+<label>Formation<select id="formation"></select></label>
+<label>Unavailable dancer<select id="missing"></select></label>
+<button id="run">Generate repair</button>
+</div>
+<p id="status" class="note">Select a dancer, then generate a repair.</p>
+<div class="hint">These are approximate reconstructions of formations from your uploaded choreography PDFs, not exact digitized coordinates. The original names and formation labels are retained. A valid repair may still need a dance captain's visual review.</div>
 </section>
-
 <section class="panel">
-    <h2>AI Repair Instructions</h2>
-
-    <p class="note">
-        Describe how you want the formation repaired.
-        The AI will interpret your instruction as a supported
-        repair preference.
-    </p>
-
-    <label for="aiInstruction">Your instruction</label>
-
-    <textarea
-        id="aiInstruction"
-        placeholder="Example: Keep the center dancers in place as much as possible."
-    ></textarea>
-
-    <button id="aiRun">Generate AI-guided repair</button>
-
-    <p id="aiStatus" class="note">
-        Enter an instruction to request an AI-guided repair.
-    </p>
+<h2>AI repair instructions</h2>
+<p class="note">Describe your priorities. Gemini interprets them as one of the backend's supported repair preferences.</p>
+<textarea id="aiInstruction" placeholder="Example: Keep the center dancers in place as much as possible."></textarea>
+<button id="aiRun">Generate AI-guided repair</button>
+<p id="aiStatus" class="note">AI preferences are limited to minimize_changes and preserve_center.</p>
 </section>
-
-<section class="panel stages">
-    <div>
-        <h2>Original</h2>
-        <svg class="stage" id="original" viewBox="0 0 600 360"></svg>
-    </div>
-
-    <div>
-        <h2>Repaired</h2>
-        <svg class="stage" id="repaired" viewBox="0 0 600 360"></svg>
-    </div>
-</section>
-
 <section class="panel">
-    <h2>Scope and Limitations</h2>
-
-    <p class="note">
-        This Alpha prototype supports single-dancer removal,
-        baseline formation repair, and validation of spacing
-        and stage boundaries. AI instructions are limited to
-        supported repair preferences. The prototype does not
-        yet optimize transitions across the entire routine
-        or guarantee that different preferences produce
-        different formations.
-    </p>
+<div class="stage-grid">
+<div class="stage-card"><h2>Original</h2><svg id="original" class="stage" viewBox="0 0 600 400" role="img" aria-label="Original formation diagram"></svg></div>
+<div class="stage-card"><h2>Repaired</h2><svg id="repaired" class="stage" viewBox="0 0 600 400" role="img" aria-label="Repaired formation diagram"></svg></div>
+</div>
+<div id="layoutChoices" class="layout-choices" hidden><label>Compare repair layouts<select id="layoutSelect"></select></label><p class="note">Choose a layout to compare different valid column arrangements. These are suggestions, not guaranteed choreography solutions.</p></div>
+<div class="legend"><span><i class="dot" style="background:#565bc1"></i>Unchanged</span><span><i class="dot" style="background:#188e74"></i>Moved</span><span><i class="dot" style="background:#d85c65"></i>Unavailable</span><span><i class="swatch-line"></i>Movement path</span></div>
+<div id="metrics" class="metrics">Movement details appear after generating a repair.</div>
 </section>
-
+<section class="panel"><h2>Scope and limitations</h2><p class="note">FormationRescue removes one dancer, checks spacing and stage boundaries, and attempts shape-aware repair for supported patterns. It does not yet guarantee aesthetically ideal formations, collision-free transitions, or optimal movement across an entire routine. All choreography changes require captain review.</p></section>
 </main>
-
 <script>
-
-// Create the dancers
-const ids = [
-    'A','B','C','D','E','F',
-    'G','H','I','J','K','L'
-];
-
-// Create example formations
-const patterns = [
-    ['V', i => [1+i%6*1.4, 1+Math.floor(i/6)*2]],
-    ['Two rows', i => [1+(i%6)*1.4, 2+Math.floor(i/6)*2]],
-    ['Diagonal', i => [1+(i%6)*1.4, 1+Math.floor(i/6)*2+(i%6)*.25]],
-    ['Columns', i => [2+(i%4)*2, 1+Math.floor(i/4)*1.5]],
-    ['Wide', i => [.8+(i%6)*1.55, 1.2+Math.floor(i/6)*3]],
-    ['Chevron', i => [1+(i%6)*1.4, 1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]
-];
-
-// Store the original routine
-const routine = {
-    stage: {
-        width: 10,
-        height: 6
-    },
-    formations: patterns.map(([name, fn]) => ({
-        name,
-        dancers: ids.map((id, i) => {
-            let [x, y] = fn(i);
-            return {id, x, y};
-        })
-    }))
+const STAGE={width:12,height:8};
+// Coordinates are approximate visual reconstructions from the two choreography PDFs.
+// The same dancer IDs are used across every formation in each routine.
+const DATA={
+  "Ending Bhangra (12 performers)":{
+    names:['Shriya','Shivani','Sanjay','Teddy','Om','Haarika','Haasini','Letti','Tanmayi','Arun','Steve','Rhea'],
+    formations:[
+      {name:'F14 · Diamond / center column',points:{Shriya:[4.5,5.8],Shivani:[4.5,4.5],Sanjay:[4.5,3.2],Haarika:[4.5,1.9],Haasini:[7.5,5.8],Tanmayi:[7.5,4.5],Letti:[7.5,3.2],Rhea:[7.5,1.9],Arun:[6,5.2],Teddy:[6,4.0],Steve:[6,2.8],Om:[6,1.5]}},
+      {name:'F19 · Layered V',points:{Shriya:[2.2,5.1],Shivani:[3,4.5],Sanjay:[3.8,3.8],Haarika:[5,2.5],Om:[6,1.7],Rhea:[7,2.5],Letti:[8.2,3.8],Steve:[9,4.5],Tanmayi:[9.8,5.1],Arun:[5,4.5],Teddy:[6,3.6],Haasini:[7,4.5]}},
+      {name:'F20 · Two staggered rows',points:{Shriya:[2.0,5.4],Sanjay:[3.6,5.4],Arun:[5.2,5.4],Teddy:[6.8,5.4],Haasini:[8.4,5.4],Steve:[10,5.4],Shivani:[2.8,3.3],Haarika:[4.4,3.3],Om:[6,3.3],Rhea:[7.6,3.3],Letti:[9.2,3.3],Tanmayi:[10.8,3.3]}},
+      {name:'F21 · Layered ending',points:{Teddy:[6,5.8],Sanjay:[3,4.5],Arun:[4.8,4.5],Rhea:[7.2,4.5],Tanmayi:[9,4.5],Shriya:[2.2,3.1],Haarika:[4.1,3.1],Om:[6,3.1],Haasini:[7.9,3.1],Steve:[9.8,3.1],Shivani:[3,1.6],Letti:[9,1.6]}}
+    ]
+  },
+  "Kuthu (14 performers)":{
+    names:['Jai','Jaynelle','Steve','Druthi','Pranav','Rhea','Nitya','Om','Rithika','Samanvi','Sanjay','Arun','Anvita','Megha'],
+    formations:[
+      {name:'F1 · Two staggered groups',points:{Jai:[3.3,6.1],Steve:[1.8,5.6],Druthi:[4.1,5.6],Pranav:[7,5.6],Jaynelle:[8.6,6.1],Rhea:[10.1,5.6],Nitya:[1.1,3.5],Sanjay:[2.7,2.9],Arun:[4.2,2.9],Om:[5.3,3.5],Rithika:[6.6,3.5],Anvita:[7.8,2.9],Megha:[9.2,2.9],Samanvi:[10.6,3.5]}},
+      {name:'F7 · Layered chevron',points:{Rithika:[6,6.6],Jai:[4.2,6.1],Jaynelle:[7.8,6.1],Nitya:[2.7,5.1],Druthi:[6,5.1],Samanvi:[9.3,5.1],Sanjay:[4.2,4],Pranav:[6,4],Megha:[7.8,4],Steve:[2.7,2.7],Rhea:[9.3,2.7],Om:[4.2,1.6],Arun:[6,2.6],Anvita:[7.8,1.6]}},
+      {name:'F9 · Layered rows',points:{Nitya:[1.5,5.6],Jai:[3.5,5.6],Rithika:[6,5.6],Jaynelle:[8.5,5.6],Samanvi:[10.5,5.6],Sanjay:[2.8,4.1],Druthi:[4.8,4.1],Rhea:[7.2,4.1],Megha:[9.2,4.1],Steve:[4.5,2.6],Pranav:[6,2.6],Anvita:[7.5,2.6],Om:[5.2,1.1],Arun:[6.8,1.1]}},
+      {name:'F12 · Three rows',points:{Nitya:[2,5.5],Jai:[4,5.5],Rithika:[6,5.5],Samanvi:[8,5.5],Jaynelle:[10,5.5],Steve:[2.8,3.8],Sanjay:[4.5,3.8],Druthi:[6,3.8],Megha:[7.5,3.8],Anvita:[9.2,3.8],Om:[3.6,2.1],Pranav:[5.2,2.1],Rhea:[6.8,2.1],Arun:[8.4,2.1]}}
+    ]
+  }
 };
-
-// Get website elements
-const missing = document.getElementById('missing');
-const form = document.getElementById('formation');
-const status = document.getElementById('status');
-const aiStatus = document.getElementById('aiStatus');
-const aiInstruction = document.getElementById('aiInstruction');
-const aiRun = document.getElementById('aiRun');
-
-// Fill the dropdown menus
-ids.forEach(id => missing.add(new Option(id, id)));
-
-patterns.forEach(([name], i) => {
-    form.add(new Option(name, i));
-});
-
-let repaired = null;
-
-// Draw dancers on the stage
-function draw(el, formation, removed) {
-    const svg = document.getElementById(el);
-    svg.replaceChildren();
-
-    const ns = 'http://www.w3.org/2000/svg';
-
-    for (const p of formation.dancers) {
-        const g = document.createElementNS(ns, 'g');
-        const c = document.createElementNS(ns, 'circle');
-        const t = document.createElementNS(ns, 'text');
-
-        c.setAttribute('cx', p.x * 60);
-        c.setAttribute('cy', p.y * 60);
-        c.setAttribute('r', 17);
-        c.setAttribute(
-            'fill',
-            p.id === removed ? '#d86161' : '#5458b9'
-        );
-
-        t.setAttribute('x', p.x * 60);
-        t.setAttribute('y', p.y * 60 + 5);
-        t.setAttribute('text-anchor', 'middle');
-        t.setAttribute('fill', 'white');
-        t.setAttribute('font-size', '14');
-        t.textContent = p.id;
-
-        g.append(c, t);
-        svg.append(g);
-    }
+const routineSelect=document.getElementById('routineSelect');
+const formationSelect=document.getElementById('formation');
+const missingSelect=document.getElementById('missing');
+const statusEl=document.getElementById('status');
+const metricsEl=document.getElementById('metrics');
+const aiStatus=document.getElementById('aiStatus');
+const aiInstruction=document.getElementById('aiInstruction');
+const aiRun=document.getElementById('aiRun');
+const runButton=document.getElementById('run');
+let repaired=null;
+let options=[];
+const layoutChoices=document.getElementById('layoutChoices');
+const layoutSelect=document.getElementById('layoutSelect');
+const MEANINGFUL_MOVE=0.15;
+layoutSelect.onchange=()=>{repaired=options[Number(layoutSelect.value)].routine;refresh();updateVisibleMetrics()};
+function updateVisibleMetrics(){
+  if(!repaired)return;
+  const i=Number(formationSelect.value||0),before=buildRoutine().formations[i].dancers;
+  const originals=Object.fromEntries(before.map(p=>[p.id,p]));
+  const after=repaired.formations[i].dancers;
+  const distances=after.map(p=>Math.hypot(p.x-originals[p.id].x,p.y-originals[p.id].y));
+  const meaningful=distances.filter(d=>d>=MEANINGFUL_MOVE).length;
+  const total=distances.reduce((a,b)=>a+b,0);
+  metricsEl.textContent=`Showing formation ${i+1}: ${meaningful} meaningful moves (at least ${MEANINGFUL_MOVE} stage units) · Total displacement: ${total.toFixed(2)} stage units. Small adjustments are not highlighted. Other formations may also change.`;
 }
-
-// Refresh the formation diagrams
-function refresh() {
-    let i = +form.value;
-
-    draw(
-        'original',
-        routine.formations[i],
-        missing.value
-    );
-
-    draw(
-        'repaired',
-        (repaired || routine).formations[i],
-        null
-    );
-}
-
-// Send a repair request to the backend
-async function requestRepair(preference) {
-    const response = await fetch('/api/repair', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            routine,
-            missing: missing.value,
-            preference
-        })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(JSON.stringify(data.detail));
-    }
-
-    repaired = data.routine;
-
-    status.textContent =
-        `${data.valid ? 'Valid' : 'Invalid'} repair · ` +
-        `${data.errors.length} validation errors · ` +
-        `${data.changed_assignments} assignments changed. ` +
-        `${data.note}`;
-
-    refresh();
-}
-
-// Generate a baseline repair
-document.getElementById('run').onclick = async () => {
-    try {
-        await requestRepair('minimize_changes');
-        aiStatus.textContent = 'Baseline repair generated without AI.';
-    } catch (error) {
-        status.textContent = 'Repair failed: ' + error.message;
-    }
-};
-
-// Generate an AI-guided repair
-aiRun.onclick = async () => {
-    const instruction = aiInstruction.value.trim();
-
-    if (!instruction) {
-        aiStatus.textContent = 'Please enter an AI instruction.';
-        return;
-    }
-
-    aiRun.disabled = true;
-    aiStatus.textContent = 'Interpreting your instruction...';
-
-    try {
-        // Ask the backend to interpret the instruction
-        const response = await fetch('/api/ai-preference', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                instruction
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(
-                typeof data.detail === 'string'
-                    ? data.detail
-                    : JSON.stringify(data.detail)
-            );
-        }
-
-        // Use the AI-selected preference to repair
-        await requestRepair(data.preference);
-
-        aiStatus.textContent =
-            'AI selected preference: ' +
-            data.preference +
-            '. Repair generated.';
-
-    } catch (error) {
-        aiStatus.textContent =
-            'AI-guided repair failed: ' + error.message;
-    } finally {
-        aiRun.disabled = false;
-    }
-};
-
-// Update diagrams when selections change
-form.onchange = refresh;
-
-missing.onchange = () => {
-    repaired = null;
-    refresh();
-};
-
-// Display the original formation
-refresh();
-
+function currentData(){return DATA[routineSelect.value]}
+function buildRoutine(){const data=currentData();return {stage:{...STAGE},formations:data.formations.map(f=>({name:f.name,dancers:data.names.map(id=>({id,x:f.points[id][0],y:f.points[id][1]}))}))}}
+function refill(){const data=currentData();formationSelect.replaceChildren();missingSelect.replaceChildren();data.formations.forEach((f,i)=>formationSelect.add(new Option(f.name,i)));data.names.forEach(id=>missingSelect.add(new Option(id,id)));repaired=null;options=[];layoutChoices.hidden=true;statusEl.textContent='Select a dancer, then generate a repair.';metricsEl.textContent='Movement details appear after generating a repair.';refresh()}
+Object.keys(DATA).forEach(name=>routineSelect.add(new Option(name,name)));
+routineSelect.onchange=refill;
+formationSelect.onchange=()=>{refresh();updateVisibleMetrics()};
+missingSelect.onchange=()=>{repaired=null;options=[];layoutChoices.hidden=true;metricsEl.textContent='Movement details appear after generating a repair.';refresh()};
+function svgNode(tag,attributes={},text){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attributes))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=text;return n}
+const px=x=>x*50,py=y=>400-y*50;
+function draw(target,formation,removed,originalFormation){const svg=document.getElementById(target);svg.replaceChildren();const grid=svgNode('g');for(let x=0;x<=12;x++){grid.append(svgNode('line',{x1:px(x),y1:0,x2:px(x),y2:400,stroke:'#d8ddec','stroke-width':1}))}for(let y=0;y<=8;y++){grid.append(svgNode('line',{x1:0,y1:py(y),x2:600,y2:py(y),stroke:'#d8ddec','stroke-width':1}))}svg.append(grid);svg.append(svgNode('text',{x:300,y:18,'text-anchor':'middle',fill:'#748099','font-size':13},'BACKSTAGE'));svg.append(svgNode('text',{x:300,y:393,'text-anchor':'middle',fill:'#748099','font-size':13},'AUDIENCE'));const orig=Object.fromEntries((originalFormation?.dancers||[]).map(p=>[p.id,p]));if(originalFormation){for(const p of formation.dancers){const old=orig[p.id];if(old&&Math.hypot(p.x-old.x,p.y-old.y)>=MEANINGFUL_MOVE){svg.append(svgNode('line',{x1:px(old.x),y1:py(old.y),x2:px(p.x),y2:py(p.y),stroke:'#e39a3a','stroke-width':2.5,'stroke-dasharray':'7 5'}));svg.append(svgNode('circle',{cx:px(old.x),cy:py(old.y),r:6,fill:'none',stroke:'#e39a3a','stroke-width':1.5}))}}}for(const p of formation.dancers){const old=orig[p.id];const moved=old&&Math.hypot(p.x-old.x,p.y-old.y)>=MEANINGFUL_MOVE;const color=p.id===removed?'#d85c65':moved?'#188e74':'#565bc1';svg.append(svgNode('circle',{cx:px(p.x),cy:py(p.y),r:14,fill:color,stroke:'white','stroke-width':1.5}));svg.append(svgNode('text',{x:px(p.x),y:py(p.y)-20,'text-anchor':'middle',fill:'#26314f','font-size':12,'font-weight':600},p.id))}}
+function refresh(){const i=Number(formationSelect.value||0);const routine=buildRoutine();draw('original',routine.formations[i],missingSelect.value);draw('repaired',(repaired||routine).formations[i],null,repaired?routine.formations[i]:null)}
+async function requestRepair(preference){runButton.disabled=true;try{const response=await fetch('/api/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({routine:buildRoutine(),missing:missingSelect.value,preference})});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail));repaired=data.routine;
+options=(data.alternatives||[]).filter(o=>o.formation_index===Number(formationSelect.value));
+if(options.length){
+  layoutChoices.hidden=false;layoutSelect.replaceChildren();
+  options.forEach((o,i)=>layoutSelect.add(new Option(o.label,i)));
+  layoutSelect.value='0';repaired=options[0].routine;
+}else{layoutChoices.hidden=true}
+statusEl.className='note '+(data.valid?'success':'error');statusEl.textContent=(data.valid?'Valid repair':'Repair has validation issues')+' · '+data.errors.length+' validation errors';refresh();updateVisibleMetrics()}finally{runButton.disabled=false}}
+runButton.onclick=async()=>{try{await requestRepair('minimize_changes');aiStatus.textContent='Baseline repair generated without AI.'}catch(e){statusEl.className='note error';statusEl.textContent='Repair failed: '+e.message}};
+aiRun.onclick=async()=>{const instruction=aiInstruction.value.trim();if(!instruction){aiStatus.textContent='Please enter an AI instruction.';return}aiRun.disabled=true;aiStatus.textContent='Interpreting your instruction...';try{const response=await fetch('/api/ai-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instruction})});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail));await requestRepair(data.preference);aiStatus.textContent='AI selected preference: '+data.preference+'. Repair generated.'}catch(e){aiStatus.textContent='AI-guided repair failed: '+e.message}finally{aiRun.disabled=false}};
+refill();
 </script>
-
 </body>
 </html>
