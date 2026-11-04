@@ -12,6 +12,8 @@ Open http://127.0.0.1:8000. No frontend build or npm dependencies are needed.
 
 ## Load and select (US-1 and US-2)
 
+**Sway PDF upload is now the primary import workflow.** See [PDF import](pdf-import.md) for supported exports, preview/confirmation, offstage-page handling, and tests. JSON remains an advanced option.
+
 The demo loads automatically. The example selector also includes the backend branch’s approximate Ending Bhangra and Kuthu reconstructions, with full dancer names. Download its JSON to use as an import template, or upload your own routine. Every formation appears in the formation selector; the unavailable-dancer selector includes the union of dancer IDs across formations. Loading another routine or selecting another absent dancer clears the proposal and cancels pending requests.
 
 Imports require positive finite stage dimensions, named nonempty formations, unique nonempty string IDs within each formation, finite coordinates within the stage, and the same dancer roster in every formation. Failed imports preserve the previous routine. Source spacing validation remains the backend's responsibility. Frontend checks supplement the API; they do not replace server-side schema validation, which remains incomplete.
