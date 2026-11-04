@@ -1,9 +1,377 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FormationRescue Alpha</title><style>
-body{font-family:system-ui;background:#f5f6fb;color:#19213b;margin:0}header{background:#292d64;color:white;padding:22px 6%}main{max-width:1100px;margin:25px auto;padding:0 20px}.panel{background:white;border-radius:14px;padding:20px;box-shadow:0 3px 20px #1111;margin-bottom:20px}select,button{padding:10px;border-radius:8px;margin:5px}button{background:#494bb4;color:white;border:0;cursor:pointer}.stages{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stage{width:100%;background:#edf0fa;border:1px solid #ccd0df;border-radius:8px}h2{margin-top:0}.note{color:#60677c;font-size:14px}@media(max-width:700px){.stages{grid-template-columns:1fr}}
-</style></head><body><header><h1>FormationRescue</h1><div>Alpha prototype · Single-dancer absence</div></header><main><section class="panel"><label>Unavailable dancer <select id="missing"></select></label><label>Formation <select id="formation"></select></label><button id="run">Generate baseline repair</button><p id="status" class="note">Select a dancer to compare original and repaired positions.</p></section><section class="panel stages"><div><h2>Original</h2><svg class="stage" id="original" viewBox="0 0 600 360"></svg></div><div><h2>Repaired</h2><svg class="stage" id="repaired" viewBox="0 0 600 360"></svg></div></section><section class="panel"><h2>Scope and limitations</h2><p class="note">This first executable baseline removes the unavailable dancer and validates spacing and stage boundaries. It does not yet close gaps, generate artistic alternatives, optimize cross-formation transitions, or call an LLM. Those features remain Alpha development work.</p></section></main><script>
-const ids=['A','B','C','D','E','F','G','H','I','J','K','L'];const patterns=[['V',i=>[1+i%6*1.4,1+Math.floor(i/6)*2]],['Two rows',i=>[1+(i%6)*1.4,2+Math.floor(i/6)*2]],['Diagonal',i=>[1+(i%6)*1.4,1+Math.floor(i/6)*2+(i%6)*.25]],['Columns',i=>[2+(i%4)*2,1+Math.floor(i/4)*1.5]],['Wide',i=>[.8+(i%6)*1.55,1.2+Math.floor(i/6)*3]],['Chevron',i=>[1+(i%6)*1.4,1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]];
-const routine={stage:{width:10,height:6},formations:patterns.map(([name,fn])=>({name,dancers:ids.map((id,i)=>{let [x,y]=fn(i);return {id,x,y}})}))};
-const missing=document.getElementById('missing'),form=document.getElementById('formation'),status=document.getElementById('status');ids.forEach(id=>missing.add(new Option(id,id)));patterns.forEach(([name],i)=>form.add(new Option(name,i)));let repaired=null;
-function draw(el,formation,removed){const svg=document.getElementById(el);svg.replaceChildren();const ns='http://www.w3.org/2000/svg';for(const p of formation.dancers){const g=document.createElementNS(ns,'g'),c=document.createElementNS(ns,'circle'),t=document.createElementNS(ns,'text');c.setAttribute('cx',p.x*60);c.setAttribute('cy',p.y*60);c.setAttribute('r',17);c.setAttribute('fill',p.id===removed?'#d86161':'#5458b9');t.setAttribute('x',p.x*60);t.setAttribute('y',p.y*60+5);t.setAttribute('text-anchor','middle');t.setAttribute('fill','white');t.setAttribute('font-size','14');t.textContent=p.id;g.append(c,t);svg.append(g)}}
-function refresh(){let i=+form.value;draw('original',routine.formations[i],missing.value);draw('repaired',(repaired||routine).formations[i],null)}form.onchange=refresh;missing.onchange=()=>{repaired=null;refresh()};document.getElementById('run').onclick=async()=>{try{const r=await fetch('/api/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({routine,missing:missing.value})});const data=await r.json();if(!r.ok)throw Error(JSON.stringify(data.detail));repaired=data.routine;status.textContent=`${data.valid?'Valid':'Invalid'} baseline · ${data.errors.length} validation errors · ${data.changed_assignments} assignments changed. ${data.note}`;refresh()}catch(e){status.textContent='Repair failed: '+e.message}};refresh();
-</script></body></html>
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FormationRescue Alpha</title>
+
+<style>
+body {
+    font-family: system-ui;
+    background: #f5f6fb;
+    color: #19213b;
+    margin: 0;
+}
+
+header {
+    background: #292d64;
+    color: white;
+    padding: 22px 6%;
+}
+
+main {
+    max-width: 1100px;
+    margin: 25px auto;
+    padding: 0 20px;
+}
+
+.panel {
+    background: white;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 3px 20px #1111;
+    margin-bottom: 20px;
+}
+
+select, button, textarea {
+    padding: 10px;
+    border-radius: 8px;
+    margin: 5px;
+    font: inherit;
+}
+
+button {
+    background: #494bb4;
+    color: white;
+    border: 0;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+textarea {
+    display: block;
+    width: 95%;
+    min-height: 75px;
+    border: 1px solid #ccd0df;
+}
+
+.stages {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+.stage {
+    width: 100%;
+    background: #edf0fa;
+    border: 1px solid #ccd0df;
+    border-radius: 8px;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+.note {
+    color: #60677c;
+    font-size: 14px;
+}
+
+@media(max-width:700px) {
+    .stages {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>FormationRescue</h1>
+    <div>Alpha prototype · Single-dancer absence</div>
+</header>
+
+<main>
+
+<section class="panel">
+    <h2>Repair a Formation</h2>
+
+    <label>
+        Unavailable dancer
+        <select id="missing"></select>
+    </label>
+
+    <label>
+        Formation
+        <select id="formation"></select>
+    </label>
+
+    <button id="run">Generate baseline repair</button>
+
+    <p id="status" class="note">
+        Select a dancer to compare original and repaired positions.
+    </p>
+</section>
+
+<section class="panel">
+    <h2>AI Repair Instructions</h2>
+
+    <p class="note">
+        Describe how you want the formation repaired.
+        The AI will interpret your instruction as a supported
+        repair preference.
+    </p>
+
+    <label for="aiInstruction">Your instruction</label>
+
+    <textarea
+        id="aiInstruction"
+        placeholder="Example: Keep the center dancers in place as much as possible."
+    ></textarea>
+
+    <button id="aiRun">Generate AI-guided repair</button>
+
+    <p id="aiStatus" class="note">
+        Enter an instruction to request an AI-guided repair.
+    </p>
+</section>
+
+<section class="panel stages">
+    <div>
+        <h2>Original</h2>
+        <svg class="stage" id="original" viewBox="0 0 600 360"></svg>
+    </div>
+
+    <div>
+        <h2>Repaired</h2>
+        <svg class="stage" id="repaired" viewBox="0 0 600 360"></svg>
+    </div>
+</section>
+
+<section class="panel">
+    <h2>Scope and Limitations</h2>
+
+    <p class="note">
+        This Alpha prototype supports single-dancer removal,
+        baseline formation repair, and validation of spacing
+        and stage boundaries. AI instructions are limited to
+        supported repair preferences. The prototype does not
+        yet optimize transitions across the entire routine
+        or guarantee that different preferences produce
+        different formations.
+    </p>
+</section>
+
+</main>
+
+<script>
+
+// Create the dancers
+const ids = [
+    'A','B','C','D','E','F',
+    'G','H','I','J','K','L'
+];
+
+// Create example formations
+const patterns = [
+    ['V', i => [1+i%6*1.4, 1+Math.floor(i/6)*2]],
+    ['Two rows', i => [1+(i%6)*1.4, 2+Math.floor(i/6)*2]],
+    ['Diagonal', i => [1+(i%6)*1.4, 1+Math.floor(i/6)*2+(i%6)*.25]],
+    ['Columns', i => [2+(i%4)*2, 1+Math.floor(i/4)*1.5]],
+    ['Wide', i => [.8+(i%6)*1.55, 1.2+Math.floor(i/6)*3]],
+    ['Chevron', i => [1+(i%6)*1.4, 1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]
+];
+
+// Store the original routine
+const routine = {
+    stage: {
+        width: 10,
+        height: 6
+    },
+    formations: patterns.map(([name, fn]) => ({
+        name,
+        dancers: ids.map((id, i) => {
+            let [x, y] = fn(i);
+            return {id, x, y};
+        })
+    }))
+};
+
+// Get website elements
+const missing = document.getElementById('missing');
+const form = document.getElementById('formation');
+const status = document.getElementById('status');
+const aiStatus = document.getElementById('aiStatus');
+const aiInstruction = document.getElementById('aiInstruction');
+const aiRun = document.getElementById('aiRun');
+
+// Fill the dropdown menus
+ids.forEach(id => missing.add(new Option(id, id)));
+
+patterns.forEach(([name], i) => {
+    form.add(new Option(name, i));
+});
+
+let repaired = null;
+
+// Draw dancers on the stage
+function draw(el, formation, removed) {
+    const svg = document.getElementById(el);
+    svg.replaceChildren();
+
+    const ns = 'http://www.w3.org/2000/svg';
+
+    for (const p of formation.dancers) {
+        const g = document.createElementNS(ns, 'g');
+        const c = document.createElementNS(ns, 'circle');
+        const t = document.createElementNS(ns, 'text');
+
+        c.setAttribute('cx', p.x * 60);
+        c.setAttribute('cy', p.y * 60);
+        c.setAttribute('r', 17);
+        c.setAttribute(
+            'fill',
+            p.id === removed ? '#d86161' : '#5458b9'
+        );
+
+        t.setAttribute('x', p.x * 60);
+        t.setAttribute('y', p.y * 60 + 5);
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('fill', 'white');
+        t.setAttribute('font-size', '14');
+        t.textContent = p.id;
+
+        g.append(c, t);
+        svg.append(g);
+    }
+}
+
+// Refresh the formation diagrams
+function refresh() {
+    let i = +form.value;
+
+    draw(
+        'original',
+        routine.formations[i],
+        missing.value
+    );
+
+    draw(
+        'repaired',
+        (repaired || routine).formations[i],
+        null
+    );
+}
+
+// Send a repair request to the backend
+async function requestRepair(preference) {
+    const response = await fetch('/api/repair', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            routine,
+            missing: missing.value,
+            preference
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(JSON.stringify(data.detail));
+    }
+
+    repaired = data.routine;
+
+    status.textContent =
+        `${data.valid ? 'Valid' : 'Invalid'} repair · ` +
+        `${data.errors.length} validation errors · ` +
+        `${data.changed_assignments} assignments changed. ` +
+        `${data.note}`;
+
+    refresh();
+}
+
+// Generate a baseline repair
+document.getElementById('run').onclick = async () => {
+    try {
+        await requestRepair('minimize_changes');
+        aiStatus.textContent = 'Baseline repair generated without AI.';
+    } catch (error) {
+        status.textContent = 'Repair failed: ' + error.message;
+    }
+};
+
+// Generate an AI-guided repair
+aiRun.onclick = async () => {
+    const instruction = aiInstruction.value.trim();
+
+    if (!instruction) {
+        aiStatus.textContent = 'Please enter an AI instruction.';
+        return;
+    }
+
+    aiRun.disabled = true;
+    aiStatus.textContent = 'Interpreting your instruction...';
+
+    try {
+        // Ask the backend to interpret the instruction
+        const response = await fetch('/api/ai-preference', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                instruction
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                typeof data.detail === 'string'
+                    ? data.detail
+                    : JSON.stringify(data.detail)
+            );
+        }
+
+        // Use the AI-selected preference to repair
+        await requestRepair(data.preference);
+
+        aiStatus.textContent =
+            'AI selected preference: ' +
+            data.preference +
+            '. Repair generated.';
+
+    } catch (error) {
+        aiStatus.textContent =
+            'AI-guided repair failed: ' + error.message;
+    } finally {
+        aiRun.disabled = false;
+    }
+};
+
+// Update diagrams when selections change
+form.onchange = refresh;
+
+missing.onchange = () => {
+    repaired = null;
+    refresh();
+};
+
+// Display the original formation
+refresh();
+
+</script>
+
+</body>
+</html>

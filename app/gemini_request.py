@@ -2,8 +2,12 @@
 """Send formation repair instructions to Google Gemini."""
 
 from google import genai
+from dotenv import load_dotenv
 
 from app.openai_adapter import parse_llm_preference
+
+# Load the private API key from the project .env file
+load_dotenv()
 
 
 def get_gemini_preference(instruction: str, client=None) -> dict:
