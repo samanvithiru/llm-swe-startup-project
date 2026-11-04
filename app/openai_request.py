@@ -30,7 +30,7 @@ def get_ai_preference(instruction: str, client=None) -> dict:
 
     # Send the instruction to the AI model
     response = client.responses.create(
-        model="gpt-6-luna",
+        model="gpt-4.1-mini",
         instructions=system_prompt,
         input=instruction
     )
