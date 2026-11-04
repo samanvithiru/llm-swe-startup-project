@@ -9,3 +9,7 @@ openai>=1,<4
 # Starlette TestClient uses httpx on older releases and httpx2 on newer ones.
 httpx>=0.27,<1
 httpx2>=2,<3
+
+# Vector Sway PDF extraction and multipart uploads.
+pymupdf>=1.26,<3
+python-multipart>=0.0.20,<1
