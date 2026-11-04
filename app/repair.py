@@ -188,6 +188,127 @@ def repair_two_rows(
     return dancers
 
 
+
+def repair_two_rows(
+    formation: dict,
+    missing: str
+) -> list[dict]:
+    """Find a symmetrical row arrangement with minimal movement."""
+
+    # Copy all available dancers
+    dancers = [
+        dict(p)
+        for p in formation["dancers"]
+        if p["id"] != missing
+    ]
+
+    # Group the original dancers by row
+    rows = {}
+
+    for p in formation["dancers"]:
+        rows.setdefault(p["y"], []).append(p)
+
+    if len(rows) != 2:
+        raise ValueError("Not a two-row formation")
+
+    # Find the original horizontal center
+    all_x = [p["x"] for p in formation["dancers"]]
+    center_x = (min(all_x) + max(all_x)) / 2
+
+    # Find the affected row
+    affected_y = next(
+        y for y, row in rows.items()
+        if any(p["id"] == missing for p in row)
+    )
+
+    # Sort remaining dancers from left to right
+    remaining = sorted(
+        [p for p in dancers if p["y"] == affected_y],
+        key=lambda p: p["x"]
+    )
+
+    count = len(remaining)
+
+    if count <= 1:
+        return dancers
+
+    # Find original spacing
+    original_row = sorted(
+        rows[affected_y],
+        key=lambda p: p["x"]
+    )
+
+    original_gaps = [
+        original_row[i + 1]["x"] - original_row[i]["x"]
+        for i in range(len(original_row) - 1)
+    ]
+
+    original_spacing = sum(original_gaps) / len(original_gaps)
+
+    # Try different spacing values near the original
+    spacing_options = [
+        original_spacing * factor
+        for factor in (
+            0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4
+        )
+    ]
+
+    best_positions = None
+    best_score = None
+
+    for spacing in spacing_options:
+
+        # Center the row
+        start_x = center_x - (count - 1) * spacing / 2
+
+        positions = [
+            round(start_x + i * spacing, 4)
+            for i in range(count)
+        ]
+
+        # Keep dancers within the original horizontal range
+        if (
+            positions[0] < min(all_x)
+            or positions[-1] > max(all_x)
+        ):
+            continue
+
+        # Avoid placing dancers too close together
+        if spacing < 0.6:
+            continue
+
+        # Calculate how many dancers would move
+        moved_count = sum(
+            abs(p["x"] - x) > 0.00001
+            for p, x in zip(remaining, positions)
+        )
+
+        # Calculate total movement
+        total_movement = sum(
+            abs(p["x"] - x)
+            for p, x in zip(remaining, positions)
+        )
+
+        # Prioritize fewer dancers moving, then less distance
+        score = (
+            moved_count,
+            total_movement
+        )
+
+        if best_score is None or score < best_score:
+            best_score = score
+            best_positions = positions
+
+    # Apply the best symmetrical arrangement
+    if best_positions is not None:
+        for p, x in zip(remaining, best_positions):
+            p["x"] = x
+
+    return dancers
+
+
+
+
 def repair_local(
     formation: dict,
     missing: str,
@@ -196,6 +317,7 @@ def repair_local(
 ) -> list[dict]:
     """Use the original geometric repair for other formations."""
 
+    # Copy dancers except the unavailable dancer
     missing_positions = [
         p for p in formation["dancers"]
         if p["id"] == missing
@@ -222,7 +344,7 @@ def repair_local(
 
     nearest = min(distances)
 
-    # Try different adjustment strengths
+    # Try different movement strengths
     for strength in (0.24, 0.16, 0.10, 0.05, 0.02):
 
         candidate = [
@@ -257,7 +379,7 @@ def repair_local(
                 4
             )
 
-        # Check whether the adjustment is valid
+        # Validate the candidate formation
         trial = {
             "stage": stage,
             "formations": [{
