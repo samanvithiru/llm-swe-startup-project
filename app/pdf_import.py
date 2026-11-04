@@ -66,9 +66,20 @@ def _parse_page(page, page_number):
     # A dancer's name is centered immediately above their current marker.
     # White outlines distinguish current dancers from blue transition ghosts.
     # Unlabeled ghosts and transition paths must not become extra dancers.
+    # Entrances/exits may place several dancers at the exact same point. Sway
+    # draws a marker and text for each one, even when those drawings overlap.
+    # Group coincident markers so every distinct label is retained at that point.
+    groups = []
+    for marker in circles:
+        group = next((g for g in groups if max(abs(a-b) for a,b in zip(g[0], marker)) < .01), None)
+        if group is None:
+            groups.append([marker])
+        else:
+            group.append(marker)
     dancers = []
     used_labels = set()
-    for marker in circles:
+    for group in groups:
+        marker = group[0]
         cx, cy, radius = (marker.x0 + marker.x1) / 2, (marker.y0 + marker.y1) / 2, marker.width / 2
         nearby = [(name, box) for name, box in lines
                   if name and any(c.isalpha() for c in name)
@@ -77,12 +88,14 @@ def _parse_page(page, page_number):
         if not nearby:
             continue
         nearby.sort(key=lambda item: abs((item[1].x0 + item[1].x1) / 2 - cx) + abs(cy - item[1].y1 - radius * 1.5))
-        name, _ = nearby[0]
-        if name in used_labels:
-            raise PDFImportError(f"Page {page_number}: ambiguous or duplicate dancer label {name!r}.")
-        used_labels.add(name)
-        dancers.append({"id": name, "x": round((cx - stage.x0) / stage.width * width, 4),
-                        "y": round((cy - stage.y0) / stage.height * height, 4)})
+        if len(group) > 1 and len(nearby) != len(group):
+            raise PDFImportError(f"Page {page_number}: overlapping dancer markers do not have matching distinct labels. Export with visible names.")
+        for name, _ in nearby[:len(group)]:
+            if name in used_labels:
+                raise PDFImportError(f"Page {page_number}: ambiguous or duplicate dancer label {name!r}.")
+            used_labels.add(name)
+            dancers.append({"id": name, "x": round((cx - stage.x0) / stage.width * width, 4),
+                            "y": round((cy - stage.y0) / stage.height * height, 4)})
     if len(dancers) != expected:
         raise PDFImportError(f"Page {page_number} ({label}): matched {len(dancers)} labeled dancer markers; expected {expected}. Export a 2D PDF with visible names.")
     hold = re.search(r"([\d.]+)s\s+hold", text)

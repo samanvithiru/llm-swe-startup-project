@@ -12,7 +12,7 @@ from app.server import app
 
 
 def sway_pdf(*, ghost=False, offstage=False, wrong_count=False, missing_name=False,
-             scale=1, second_roster=False):
+             scale=1, second_roster=False, overlapping=False):
     """Generate the observed export structure without storing a user's routine."""
     doc = pymupdf.open()
     for index in range(2):
@@ -23,6 +23,8 @@ def sway_pdf(*, ghost=False, offstage=False, wrong_count=False, missing_name=Fal
         rect = pymupdf.Rect(200*scale, 170*scale, 580*scale, 450*scale)
         page.draw_rect(rect, color=(.4,.6,1))
         for name,x,y in [('Alpha', 280, 260), ('Changed' if second_roster and index else 'Beta', 680 if offstage and index else 470, 330)]:
+            if overlapping and index == 0:
+                x, y = 280, 260
             if ghost:
                 page.draw_circle((x*scale,y*scale),5*scale,color=(.35,.5,.79),fill=(.14,.29,.57))
             page.draw_circle((x*scale,y*scale),7*scale,color=(1,1,1),fill=(0,.71,.85))
@@ -113,3 +115,38 @@ def test_supplied_kuthu_pdf():
     routine={**result['routine'],'formations':result['routine']['formations'][:-1]}
     response=TestClient(app).post('/api/repair',json={'routine':routine,'missing':'Rhea'})
     assert response.status_code==200 and response.json()['valid']
+
+
+def test_overlapping_markers_keep_each_distinct_dancer_at_the_original_position():
+    result = import_sway_pdf(sway_pdf(overlapping=True))
+    first = result['routine']['formations'][0]['dancers']
+    assert {p['id'] for p in first} == {'Alpha', 'Beta'}
+    assert all((p['x'], p['y']) == (8, 9) for p in first)
+    assert not result['pages'][0]['importable']
+    assert any('too close' in issue for issue in result['pages'][0]['issues'])
+    assert result['pages'][1]['importable']
+    # A missing name cannot be replaced by a duplicate or a guessed identity.
+    with pytest.raises(PDFImportError, match='overlapping dancer markers'):
+        import_sway_pdf(sway_pdf(overlapping=True, missing_name=True))
+
+
+@pytest.mark.skipif(not os.environ.get('SWAY_BHANGRA_PDF'), reason='Set SWAY_BHANGRA_PDF to run the supplied Bhangra PDF regression.')
+def test_supplied_bhangra_pdf_with_overlapping_offstage_entrances():
+    content = Path(os.environ['SWAY_BHANGRA_PDF']).read_bytes()
+    response = TestClient(app).post('/api/import/sway-pdf', files={
+        'file': ('bhangra.pdf', content, 'application/pdf')
+    })
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert [p['name'] for p in result['pages']] == ['F0','F1','F2','F13','F14','F15','F16','F17','F18','F19','F20','F21']
+    assert all(p['dancer_count'] == 12 for p in result['pages'])
+    expected = {'Tanmayi','Sanjay','Arun','Letti','Shivani','Om','Haasini','Shriya','Rhea','Haarika','Steve','Teddy'}
+    assert all({p['id'] for p in f['dancers']} == expected for f in result['routine']['formations'])
+    first = {p['id']: (p['x'], p['y']) for p in result['routine']['formations'][0]['dancers']}
+    assert first['Arun'] == first['Steve']
+    assert first['Sanjay'] == first['Teddy']
+    assert not result['pages'][0]['importable']
+    assert all(p['importable'] for p in result['pages'][1:])
+    routine = {**result['routine'], 'formations': result['routine']['formations'][1:]}
+    repair = TestClient(app).post('/api/repair', json={'routine': routine, 'missing': 'Rhea'})
+    assert repair.status_code == 200 and repair.json()['valid']
