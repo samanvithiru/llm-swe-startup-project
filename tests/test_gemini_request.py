@@ -26,7 +26,8 @@ def test_successful_gemini_request():
 
 
 # Test that the instruction is sent to Gemini
-def test_instruction_is_sent():
+def test_instruction_is_sent(monkeypatch):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
     calls = []
 
     class FakeModels:
@@ -43,6 +44,7 @@ def test_instruction_is_sent():
         client=fake_client
     )
 
+    assert calls[0]["model"] == "gemini-3.8-flash"
     assert len(calls) == 1
     assert "Minimize dancer movement" in str(calls[0]["contents"])
 
@@ -81,3 +83,16 @@ def test_gemini_api_failure():
             "Minimize movement",
             client=fake_client
         )
+
+
+def test_model_can_be_configured(monkeypatch):
+    monkeypatch.setenv("GEMINI_MODEL", "team-selected-model")
+    calls = []
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(text='{"preference":"minimize_changes"}')
+
+    get_gemini_preference("Minimize movement", client=SimpleNamespace(models=FakeModels()))
+    assert calls[0]["model"] == "team-selected-model"

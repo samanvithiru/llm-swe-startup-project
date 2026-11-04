@@ -1,6 +1,8 @@
 
 """Send formation repair instructions to Google Gemini."""
 
+import os
+
 from google import genai
 from dotenv import load_dotenv
 
@@ -34,7 +36,7 @@ def get_gemini_preference(instruction: str, client=None) -> dict:
 
     # Send the instruction to Gemini
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"),
         contents=system_prompt + "\n\nUser instruction: " + instruction
     )
 

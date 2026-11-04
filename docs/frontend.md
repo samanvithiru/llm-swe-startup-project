@@ -20,7 +20,7 @@ Imports require positive finite stage dimensions, named nonempty formations, uni
 
 The selected absence is sent to the existing POST /api/repair endpoint as `{routine, missing, preference}`. Manual preferences are `minimize_changes` and `preserve_center`. AI-guided repair first calls `POST /api/ai-preference` with `{instruction}`, validates the returned preference, then requests a repair. Changing the routine, absence, preference, or instruction cancels pending work. AI failures leave manual controls available. The client checks that the returned roster in each formation is the original roster minus that dancer before displaying the proposal.
 
-The server uses Gemini for interpretation and requires a locally configured `GEMINI_API_KEY` (environment or ignored `.env`) for live AI requests. Never put a key in HTML or commit it. The normal repair endpoint requires no AI credentials. AI currently chooses a supported preference; it does not generate layouts or minimize left/right choreography switches. Shape-specific repairs may follow their own layout rules regardless of preference.
+The server uses Gemini for interpretation and requires a locally configured `GEMINI_API_KEY` (environment or ignored `.env`) for live AI requests. Never put a key in HTML or commit it. The normal repair endpoint requires no AI credentials. Gemini requests default to `gemini-3.8-flash`; set `GEMINI_MODEL` in the environment or `.env` to override it. AI currently chooses a supported preference; it does not generate layouts or minimize left/right choreography switches. Shape-specific repairs may follow their own layout rules regardless of preference.
 
 ## Compare and decide (US-6)
 
