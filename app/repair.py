@@ -24,23 +24,52 @@ def validate(routine: dict, missing: str | None = None, min_spacing: float = 0.6
 
 
 def repair(routine: dict, missing: str, preference: str = 'minimize_changes') -> dict:
-    """Remove one dancer while leaving their previous position vacant.
+    """Close vacancies with a small deterministic, spacing-checked local adjustment.
 
-    Each formation retains all other dancer IDs. This is an Alpha baseline,
-    not global pathfinding or an artistic formation repair.
+    This is a geometric heuristic, not a global choreography or transition solver.
     """
     if not any(p['id'] == missing for f in routine['formations'] for p in f['dancers']):
         raise ValueError(f'Unknown dancer: {missing}')
     if preference not in ('minimize_changes', 'preserve_center'):
         raise ValueError('Unsupported preference')
     result = {'stage': dict(routine['stage']), 'formations': []}
+    moved = 0
+    displacement = 0.0
     for formation in routine['formations']:
+        missing_positions = [p for p in formation['dancers'] if p['id'] == missing]
         people = [dict(p) for p in formation['dancers'] if p['id'] != missing]
-        # Preserve every remaining dancer's learned position: zero reassignment.
-        # The missing position is intentionally vacant, rather than inventing a replacement.
+        if missing_positions and people:
+            vacant = missing_positions[0]
+            # Move dancers slightly toward the vacant position, weighting closer
+            # dancers more heavily. Try progressively smaller adjustments until
+            # the deterministic validator accepts the entire candidate.
+            from math import hypot
+            distances = [hypot(p['x'] - vacant['x'], p['y'] - vacant['y']) for p in people]
+            nearest = min(distances)
+            for strength in (0.24, 0.16, 0.10, 0.05, 0.02):
+                candidate = [dict(p) for p in people]
+                for p, d in zip(candidate, distances):
+                    weight = strength * (nearest / max(d, 0.00001))
+                    if preference == 'preserve_center':
+                        # Prefer to keep dancers close to stage center unchanged.
+                        center_distance = hypot(p['x'] - routine['stage']['width']/2,
+                                                p['y'] - routine['stage']['height']/2)
+                        weight *= min(1.0, center_distance / 2.0)
+                    p['x'] = round(p['x'] + (vacant['x'] - p['x']) * weight, 4)
+                    p['y'] = round(p['y'] + (vacant['y'] - p['y']) * weight, 4)
+                trial = {'stage': result['stage'], 'formations': [{'name': formation['name'], 'dancers': candidate}]}
+                if not validate(trial):
+                    people = candidate
+                    break
+        before = {p['id']: p for p in formation['dancers']}
+        for p in people:
+            delta = dist((p['x'], p['y']), (before[p['id']]['x'], before[p['id']]['y']))
+            if delta > 0.00001:
+                moved += 1
+                displacement += delta
         result['formations'].append({'name': formation['name'], 'dancers': people})
     errors = validate(result, missing)
     return {'routine': result, 'valid': not errors, 'errors': errors,
-            'changed_assignments': 0, 'removed_dancer': missing,
-            'method': 'vacancy-preserving baseline',
-            'note': 'This baseline removes the absent dancer but does not close formation gaps or optimize transitions.'}
+            'changed_assignments': moved, 'total_displacement': round(displacement, 4),
+            'removed_dancer': missing, 'method': 'spacing-checked local reblocking',
+            'note': 'Local geometric repair only; choreography directions and transition feasibility require captain review.'}
