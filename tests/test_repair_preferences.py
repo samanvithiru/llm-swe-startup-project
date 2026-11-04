@@ -1,10 +1,12 @@
 
-"""Test how different preferences affect formation repair."""
+"""Test how preferences affect symmetry-first formation repair."""
+
+from math import dist
 
 from app.repair import repair
 
 
-# Create a simple formation for testing
+# Create a simple two-row formation
 def sample_routine():
     return {
         "stage": {"width": 10, "height": 6},
@@ -26,62 +28,100 @@ def sample_routine():
     }
 
 
-# Check that both preferences generate valid repairs
+# Get the repaired dancers
+def get_dancers(result):
+    return result["routine"]["formations"][0]["dancers"]
+
+
+# Check that both preferences produce valid formations
 def test_both_preferences_are_valid():
     routine = sample_routine()
 
-    minimize = repair(routine, "G", "minimize_changes")
-    preserve = repair(routine, "G", "preserve_center")
+    for preference in ["minimize_changes", "preserve_center"]:
+        result = repair(routine, "G", preference)
 
-    assert minimize["valid"]
-    assert preserve["valid"]
+        assert result["valid"]
+        assert result["errors"] == []
 
 
-# Check that different preferences affect dancer positions
-def test_preferences_produce_different_positions():
+# Check that both preferences preserve clean row spacing
+def test_both_preferences_preserve_symmetry():
     routine = sample_routine()
 
-    minimize = repair(routine, "G", "minimize_changes")
-    preserve = repair(routine, "G", "preserve_center")
+    for preference in ["minimize_changes", "preserve_center"]:
+        result = repair(routine, "G", preference)
 
-    assert (
-        minimize["routine"]["formations"][0]["dancers"]
-        != preserve["routine"]["formations"][0]["dancers"]
-    )
+        # Get the bottom row
+        bottom = sorted(
+            [
+                p for p in get_dancers(result)
+                if p["y"] == 4
+            ],
+            key=lambda p: p["x"]
+        )
+
+        # Three dancers remain after G is removed
+        assert len(bottom) == 3
+
+        # Check that gaps are equal
+        gaps = [
+            bottom[i + 1]["x"] - bottom[i]["x"]
+            for i in range(len(bottom) - 1)
+        ]
+
+        assert max(gaps) - min(gaps) < 0.01
+
+        # Check that the row stays centered
+        center = (bottom[0]["x"] + bottom[-1]["x"]) / 2
+
+        assert abs(center - 5.0) < 0.01
 
 
-# Check that center dancers move less with preserve_center
-def test_preserve_center_reduces_center_movement():
+# Check that the unaffected row does not move
+def test_unaffected_row_stays_unchanged():
     routine = sample_routine()
 
-    minimize = repair(routine, "G", "minimize_changes")
-    preserve = repair(routine, "G", "preserve_center")
+    original = {
+        p["id"]: p
+        for p in routine["formations"][0]["dancers"]
+    }
 
-    def get_position(result, dancer_id):
-        dancers = result["routine"]["formations"][0]["dancers"]
-        dancer = next(p for p in dancers if p["id"] == dancer_id)
-        return dancer["x"], dancer["y"]
+    for preference in ["minimize_changes", "preserve_center"]:
+        result = repair(routine, "G", preference)
 
-    # Dancer C is close to the center of the stage
-    original = (6, 2)
-
-    min_pos = get_position(minimize, "C")
-    preserve_pos = get_position(preserve, "C")
-
-    min_movement = (
-        (min_pos[0] - original[0]) ** 2
-        + (min_pos[1] - original[1]) ** 2
-    ) ** 0.5
-
-    preserve_movement = (
-        (preserve_pos[0] - original[0]) ** 2
-        + (preserve_pos[1] - original[1]) ** 2
-    ) ** 0.5
-
-    assert preserve_movement < min_movement
+        for p in get_dancers(result):
+            if p["id"] in ["A", "B", "C", "D"]:
+                assert p["x"] == original[p["id"]]["x"]
+                assert p["y"] == original[p["id"]]["y"]
 
 
-# Check that the unavailable dancer is removed
+# Check that both preferences minimize unnecessary movement
+def test_both_preferences_avoid_unnecessary_movement():
+    routine = sample_routine()
+
+    original = {
+        p["id"]: p
+        for p in routine["formations"][0]["dancers"]
+    }
+
+    for preference in ["minimize_changes", "preserve_center"]:
+        result = repair(routine, "G", preference)
+
+        # Measure movement of dancers in the unaffected row
+        for p in get_dancers(result):
+            if p["id"] in ["A", "B", "C", "D"]:
+                movement = dist(
+                    (p["x"], p["y"]),
+                    (
+                        original[p["id"]]["x"],
+                        original[p["id"]]["y"]
+                    )
+                )
+
+                assert movement == 0
+
+
+# Check that the missing dancer is removed
 def test_missing_dancer_removed():
     routine = sample_routine()
 
@@ -90,7 +130,8 @@ def test_missing_dancer_removed():
 
         ids = [
             p["id"]
-            for p in result["routine"]["formations"][0]["dancers"]
+            for p in get_dancers(result)
         ]
 
         assert "G" not in ids
+        assert len(ids) == 7
