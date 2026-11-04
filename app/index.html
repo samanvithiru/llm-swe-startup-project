@@ -1,9 +1,190 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FormationRescue Alpha</title><style>
-body{font-family:system-ui;background:#f5f6fb;color:#19213b;margin:0}header{background:#292d64;color:white;padding:22px 6%}main{max-width:1100px;margin:25px auto;padding:0 20px}.panel{background:white;border-radius:14px;padding:20px;box-shadow:0 3px 20px #1111;margin-bottom:20px}select,button{padding:10px;border-radius:8px;margin:5px}button{background:#494bb4;color:white;border:0;cursor:pointer}.stages{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stage{width:100%;background:#edf0fa;border:1px solid #ccd0df;border-radius:8px}h2{margin-top:0}.note{color:#60677c;font-size:14px}@media(max-width:700px){.stages{grid-template-columns:1fr}}
-</style></head><body><header><h1>FormationRescue</h1><div>Alpha prototype · Single-dancer absence</div></header><main><section class="panel"><label>Unavailable dancer <select id="missing"></select></label><label>Formation <select id="formation"></select></label><button id="run">Generate baseline repair</button><p id="status" class="note">Select a dancer to compare original and repaired positions.</p></section><section class="panel stages"><div><h2>Original</h2><svg class="stage" id="original" viewBox="0 0 600 360"></svg></div><div><h2>Repaired</h2><svg class="stage" id="repaired" viewBox="0 0 600 360"></svg></div></section><section class="panel"><h2>Scope and limitations</h2><p class="note">This first executable baseline removes the unavailable dancer and validates spacing and stage boundaries. It does not yet close gaps, generate artistic alternatives, optimize cross-formation transitions, or call an LLM. Those features remain Alpha development work.</p></section></main><script>
-const ids=['A','B','C','D','E','F','G','H','I','J','K','L'];const patterns=[['V',i=>[1+i%6*1.4,1+Math.floor(i/6)*2]],['Two rows',i=>[1+(i%6)*1.4,2+Math.floor(i/6)*2]],['Diagonal',i=>[1+(i%6)*1.4,1+Math.floor(i/6)*2+(i%6)*.25]],['Columns',i=>[2+(i%4)*2,1+Math.floor(i/4)*1.5]],['Wide',i=>[.8+(i%6)*1.55,1.2+Math.floor(i/6)*3]],['Chevron',i=>[1+(i%6)*1.4,1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]];
-const routine={stage:{width:10,height:6},formations:patterns.map(([name,fn])=>({name,dancers:ids.map((id,i)=>{let [x,y]=fn(i);return {id,x,y}})}))};
-const missing=document.getElementById('missing'),form=document.getElementById('formation'),status=document.getElementById('status');ids.forEach(id=>missing.add(new Option(id,id)));patterns.forEach(([name],i)=>form.add(new Option(name,i)));let repaired=null;
-function draw(el,formation,removed){const svg=document.getElementById(el);svg.replaceChildren();const ns='http://www.w3.org/2000/svg';for(const p of formation.dancers){const g=document.createElementNS(ns,'g'),c=document.createElementNS(ns,'circle'),t=document.createElementNS(ns,'text');c.setAttribute('cx',p.x*60);c.setAttribute('cy',p.y*60);c.setAttribute('r',17);c.setAttribute('fill',p.id===removed?'#d86161':'#5458b9');t.setAttribute('x',p.x*60);t.setAttribute('y',p.y*60+5);t.setAttribute('text-anchor','middle');t.setAttribute('fill','white');t.setAttribute('font-size','14');t.textContent=p.id;g.append(c,t);svg.append(g)}}
-function refresh(){let i=+form.value;draw('original',routine.formations[i],missing.value);draw('repaired',(repaired||routine).formations[i],null)}form.onchange=refresh;missing.onchange=()=>{repaired=null;refresh()};document.getElementById('run').onclick=async()=>{try{const r=await fetch('/api/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({routine,missing:missing.value})});const data=await r.json();if(!r.ok)throw Error(JSON.stringify(data.detail));repaired=data.routine;status.textContent=`${data.valid?'Valid':'Invalid'} baseline · ${data.errors.length} validation errors · ${data.changed_assignments} assignments changed. ${data.note}`;refresh()}catch(e){status.textContent='Repair failed: '+e.message}};refresh();
-</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FormationRescue · Routine review</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#19213b;background:#f5f6fb}
+    *{box-sizing:border-box}body{margin:0}header{background:#292d64;color:white;padding:24px max(24px,6%)}header p{margin-bottom:0;color:#dddff8}h1{margin:0;font-size:28px}h2{margin-top:0;font-size:20px}main{max-width:1200px;margin:24px auto;padding:0 20px}.panel{background:white;border:1px solid #e1e3ef;border-radius:14px;padding:22px;margin-bottom:20px}.controls{display:flex;align-items:end;gap:16px;flex-wrap:wrap}label{display:grid;gap:7px;font-size:14px;font-weight:600}select,button,input,textarea{font:inherit}select,button,input[type=file]{padding:10px;border:1px solid #c5c9db;border-radius:8px;max-width:100%}button{background:#494bb4;color:white;cursor:pointer;border-color:#494bb4}button.secondary{background:white;color:#292d64}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #b28b00;outline-offset:3px}.note{color:#555e74;font-size:14px;line-height:1.6}.stages{display:grid;grid-template-columns:1fr 1fr;gap:20px}.stage{display:block;width:100%;background:#edf0fa;border:1px solid #ccd0df;border-radius:8px}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}.legend span::before{content:'●';margin-right:6px;color:#5458b9}.legend .absent::before{color:#bc3434}.legend .moved::before{color:#9b5700}textarea{display:block;width:100%;min-height:80px;border:1px solid #c5c9db;border-radius:8px;padding:10px;margin:8px 0 16px}#status{white-space:pre-wrap}#status.error{color:#a12828}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e1e3ef;padding:10px} .table-wrap{overflow:auto}details{margin-top:16px}pre{overflow:auto;font-size:13px}#summary{font-weight:600}#review-status{white-space:pre-wrap}@media(max-width:720px){.stages{grid-template-columns:1fr}.controls>*{width:100%}}
+  </style>
+</head>
+<body>
+<header><h1>FormationRescue</h1><p>Single-dancer absence · Load, compare, and review your routine</p></header>
+<main>
+  <section class="panel" aria-labelledby="load-title">
+    <h2 id="load-title">1. Load a routine</h2>
+    <div class="controls"><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
+    <p id="routine-info" class="note"></p>
+    <details><summary>JSON format</summary><p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p><pre>{
+  "stage": {"width": 10, "height": 6},
+  "formations": [{
+    "name": "Opening",
+    "dancers": [{"id": "A", "x": 2, "y": 3},
+                {"id": "B", "x": 5, "y": 3}]
+  }]
+}</pre></details>
+  </section>
+  <section class="panel" aria-labelledby="repair-title">
+    <h2 id="repair-title">2. Mark an absence</h2>
+    <div class="controls"><label>Unavailable dancer<select id="missing"></select></label><label>Formation to view<select id="formation"></select></label><button id="run">Generate repair</button></div>
+    <p id="status" class="note" role="status" aria-live="polite">Select an unavailable dancer, then generate a repair.</p>
+  </section>
+  <section class="panel" aria-label="Formation comparison">
+    <div class="legend"><span>Unchanged dancer</span><span class="absent">Unavailable dancer</span><span class="moved">Moved dancer / dashed travel path</span></div>
+    <p id="summary" class="note">No repair generated yet.</p>
+    <div class="stages"><div><h2>Original</h2><svg class="stage" id="original" role="img" aria-label="Original formation"></svg></div><div><h2>Proposed repair</h2><svg class="stage" id="repaired" role="img" aria-label="Proposed formation"></svg><p id="proposal-note" class="note">Generate a repair to see proposed positions.</p></div></div>
+    <div class="table-wrap"><table><caption>Position changes in the selected formation</caption><thead><tr><th>Dancer</th><th>Original (x, y)</th><th>Proposed (x, y)</th><th>Distance</th></tr></thead><tbody id="changes"></tbody></table></div>
+  </section>
+  <section class="panel" aria-labelledby="review-title">
+    <h2 id="review-title">3. Review the whole routine</h2>
+    <p class="note">Approval applies to all formations in this proposal. Geometric validation does not check choreography directions or transition feasibility; captain review is required. Decisions are stored only in this browser and can be downloaded with the proposal.</p>
+    <label for="review-note">Review notes (optional)</label><textarea id="review-note" maxlength="2000" placeholder="What works, or what needs to change?"></textarea>
+    <div class="controls"><button id="approve" disabled>Approve repair</button><button id="reject" class="secondary" disabled>Reject repair</button><button id="export-review" class="secondary" disabled>Download proposal and review</button></div>
+    <p id="review-status" class="note" role="status" aria-live="polite">No review recorded.</p>
+    <details><summary>Saved review history on this browser</summary><ul id="history"></ul></details>
+  </section>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const ns = 'http://www.w3.org/2000/svg';
+const storageKey = 'formationrescue.reviews.v1';
+let routine, result = null, review = null, generation = 0, controller = null, loading = false;
+const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
+const patterns = [
+  ['V', i => [1+(i%6)*1.4, .8+Math.abs(2.5-i%6)*.65+Math.floor(i/6)*2.2]],
+  ['Two rows', i => [1+(i%6)*1.4, 2+Math.floor(i/6)*2]],
+  ['Diagonal', i => [1+(i%6)*1.4, 1+Math.floor(i/6)*2+(i%6)*.25]],
+  ['Columns', i => [2+(i%4)*2, 1+Math.floor(i/4)*1.5]],
+  ['Wide', i => [.8+(i%6)*1.55, 1.2+Math.floor(i/6)*3]],
+  ['Chevron', i => [1+(i%6)*1.4, 1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]
+];
+function demoRoutine() {
+  return {stage:{width:10,height:6}, formations:patterns.map(([name,fn]) => ({name,dancers:ids.map((id,i) => {const [x,y]=fn(i);return {id,x,y};})}))};
+}
+function validateRoutine(value, allowEmptyFormations=false) {
+  if (!value || !value.stage || !Number.isFinite(value.stage.width) || !Number.isFinite(value.stage.height) || value.stage.width<=0 || value.stage.height<=0) throw Error('Stage width and height must be positive finite numbers.');
+  if (!Array.isArray(value.formations) || !value.formations.length) throw Error('Provide at least one formation.');
+  value.formations.forEach((f,i) => {
+    if (!f || typeof f.name!=='string' || !f.name.trim() || !Array.isArray(f.dancers) || (!allowEmptyFormations && !f.dancers.length)) throw Error(`Formation ${i+1} needs a name and at least one dancer.`);
+    const seen=new Set();
+    f.dancers.forEach(p => {
+      if (!p || typeof p.id!=='string' || !p.id.trim()) throw Error(`Formation ${i+1}: every dancer needs a nonempty string ID.`);
+      if (seen.has(p.id)) throw Error(`Formation ${i+1}: duplicate dancer ID ${p.id}.`);
+      seen.add(p.id);
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw Error(`Formation ${i+1}, dancer ${p.id}: x and y must be finite numbers.`);
+      if (p.x<0 || p.x>value.stage.width || p.y<0 || p.y>value.stage.height) throw Error(`Formation ${i+1}, dancer ${p.id}: coordinates are outside the stage.`);
+    });
+  });
+  return value;
+}
+function status(message,error=false) { $('status').textContent=message; $('status').classList.toggle('error',error); }
+function resetProposal(message='Selection changed. Generate a new repair.') {
+  generation++; controller?.abort(); controller=null; loading=false; result=null; review=null;
+  $('run').disabled=false; $('review-note').value=''; $('review-status').textContent='No review recorded.';
+  status(message); refresh();
+}
+function loadRoutine(value,label) {
+  validateRoutine(value); routine=value;
+  $('missing').replaceChildren(...[...new Set(value.formations.flatMap(f=>f.dancers.map(p=>p.id)))].map(id=>new Option(id,id)));
+  $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(`${i+1}. ${f.name}`,i)));
+  $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}`;
+  resetProposal('Routine loaded. Select an unavailable dancer, then generate a repair.');
+}
+function svgNode(tag,attrs,text) {
+  const node=document.createElementNS(ns,tag);
+  Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,value));
+  if(text!==undefined) node.textContent=text;
+  return node;
+}
+function distance(a,b) {return Math.hypot(a.x-b.x,a.y-b.y);}
+function draw(id,formation,original) {
+  const svg=$(id), {width,height}=routine.stage;
+  const scale=600/Math.max(width,height), w=width*scale,h=height*scale;
+  svg.setAttribute('viewBox',`-24 -24 ${w+48} ${h+48}`); svg.replaceChildren();
+  svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,fill:'none',stroke:'#9ba3c0'}));
+  if(!formation) return;
+  const before=new Map((original?.dancers||[]).map(p=>[p.id,p]));
+  for(const p of formation.dancers) {
+    const old=before.get(p.id), moved=old && distance(p,old)>0.00001;
+    if(moved) {
+      svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:p.x*scale,y2:p.y*scale,stroke:'#9b5700','stroke-width':2,'stroke-dasharray':'5 4'}));
+      svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,fill:'none',stroke:'#9b5700','stroke-dasharray':'3 3'}));
+    }
+    const absent=id==='original' && p.id===$('missing').value;
+    const g=svgNode('g',{});g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${absent?' — unavailable':moved?' — moved':''}`));
+    g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,fill:absent?'#bc3434':moved?'#9b5700':'#5458b9'}));
+    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id));svg.append(g);
+  }
+}
+function refresh() {
+  if(!routine) return;
+  const i=Number($('formation').value), original=routine.formations[i], proposed=result?.routine.formations[i];
+  draw('original',original); draw('repaired',proposed,original);
+  $('proposal-note').textContent=result ? (result.valid?'Review moved positions and transitions before approval.':'Invalid proposal. Approval is disabled; review the validation errors.') : 'Generate a repair to see proposed positions.';
+  $('summary').textContent=result ? `${result.changed_assignments ?? '—'} moved positions across the routine · total displacement: ${result.total_displacement ?? '—'} stage units` : 'No repair generated yet.';
+  $('changes').replaceChildren();
+  if(proposed) for(const p of original.dancers) {
+    const after=proposed.dancers.find(q=>q.id===p.id);
+    if(after && distance(p,after)<=0.00001) continue;
+    const row=document.createElement('tr');
+    [p.id,`(${p.x}, ${p.y})`,after?`(${after.x}, ${after.y})`:'Removed',after?distance(p,after).toFixed(3):'—'].forEach(value=>{const td=document.createElement('td');td.textContent=value;row.append(td);});
+    $('changes').append(row);
+  }
+  $('approve').disabled=!result?.valid || loading; $('reject').disabled=!result || loading; $('export-review').disabled=!result || loading;
+}
+function readHistory() { const records=JSON.parse(localStorage.getItem(storageKey)||'[]'); if(!Array.isArray(records)) throw Error('Invalid saved review history.'); return records; }
+function showHistory() {
+  $('history').replaceChildren();
+  try {for(const record of readHistory().slice().reverse()) {const li=document.createElement('li');li.textContent=`${record.reviewed_at} · ${record.decision} · unavailable dancer ${record.missing}${record.notes?' · '+record.notes:''}`;$('history').append(li);}}
+  catch {const li=document.createElement('li');li.textContent='Browser review storage is unavailable. You can still download your current review.';$('history').append(li);}
+  if(!$('history').children.length){const li=document.createElement('li');li.textContent='No saved reviews yet.';$('history').append(li);}
+}
+function recordReview(decision) {
+  if(!result || (decision==='approved' && !result.valid)) return;
+  const record={decision,reviewed_at:new Date().toISOString(),missing:$('missing').value,notes:$('review-note').value,original:routine,proposal:result};
+  try {const history=readHistory();history.push(record);localStorage.setItem(storageKey,JSON.stringify(history));review=record;$('review-status').textContent=`Repair ${decision}. Saved in this browser at ${new Date(record.reviewed_at).toLocaleString()}.`;}
+  catch {review=record;$('review-status').textContent=`Repair ${decision}, but browser storage failed. Download the proposal and review to keep this decision.`;}
+  showHistory();
+}
+function download(name,value) {
+  const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$('upload').onchange=async event=>{
+  const file=event.target.files[0];if(!file)return;
+  // Invalidate pending responses immediately, including while reading the file.
+  resetProposal('Reading routine file…');const version=generation;
+  try {const value=JSON.parse(await file.text());if(version!==generation)return;loadRoutine(value,file.name);}
+  catch(error){if(version===generation)status(`Could not load routine: ${error.message} The previous routine is still loaded.`,true);}
+  finally{event.target.value='';}
+};
+$('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
+$('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
+$('run').onclick=async()=>{
+  resetProposal('Generating repair…');loading=true;$('run').disabled=true;refresh();
+  const version=generation;controller=new AbortController();
+  try {
+    const response=await fetch('/api/repair',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({routine,missing:$('missing').value})});
+    const data=await response.json();if(version!==generation)return;
+    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));
+    validateRoutine(data.routine,true);
+    if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || data.routine.formations.length!==routine.formations.length)throw Error('The server returned an unexpected repair response.');
+    // Never enable approval if the absent dancer remains or the roster changes.
+    data.routine.formations.forEach((f,i)=>{
+      const expected=routine.formations[i].dancers.filter(p=>p.id!==$('missing').value).map(p=>p.id).sort();
+      if(JSON.stringify(f.dancers.map(p=>p.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: repair returned an unexpected dancer roster.`);
+    });
+    result=data;status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
+  } catch(error) {if(version===generation && error.name!=='AbortError')status(`Repair failed: ${error.message}`,true);}
+  finally {if(version===generation){loading=false;controller=null;$('run').disabled=false;refresh();}}
+};
+$('approve').onclick=()=>recordReview('approved');$('reject').onclick=()=>recordReview('rejected');
+$('review-note').oninput=()=>{if(review)$('review-status').textContent='Notes changed since the last recorded decision. Approve or reject again to save the updated notes.';};
+$('export-source').onclick=()=>download('formationrescue-routine.json',routine);
+$('export-review').onclick=()=>{if(result)download('formationrescue-review.json',{original:routine,missing:$('missing').value,proposal:result,review:review?{decision:review.decision,reviewed_at:review.reviewed_at,notes:review.notes}:null,draft_notes:$('review-note').value});};
+loadRoutine(demoRoutine(),'Demo routine');showHistory();
+</script>
+</body>
+</html>
