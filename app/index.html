@@ -40,6 +40,7 @@
   </section>
   <section class="panel" aria-labelledby="repair-title">
     <h2 id="repair-title">2. Mark an absence</h2>
+    <p id="absence-source" class="note" aria-live="polite"></p>
     <div class="controls"><label>Unavailable dancer<select id="missing"></select></label><label>Formation to view<select id="formation"></select></label><label>Repair preference<select id="preference"><option value="minimize_changes">Minimize changes</option><option value="preserve_center">Preserve center</option></select></label><button id="run">Generate repair</button></div>
     <p id="status" class="note" role="status" aria-live="polite">Select an unavailable dancer, then generate a repair.</p>
   </section>
@@ -142,8 +143,9 @@ function resetProposal(message='Selection changed. Generate a new repair.') {
 function loadRoutine(value,label) {
   validateRoutine(value); clearPDFPreview(); routine=value; $('example').value='';
   $('missing').replaceChildren(...[...new Set(value.formations.flatMap(f=>f.dancers.map(p=>p.id)))].map(id=>new Option(id,id)));
-  $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(`${i+1}. ${f.name}`,i)));
+  $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(f.name,i)));
   $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}${value.stage.units?' '+value.stage.units:''}`;
+  $('absence-source').textContent=`Active routine: ${label}. Dancer names and formation labels below come from this routine.`;
   resetProposal('Routine loaded. Select an unavailable dancer, then generate a repair.');
 }
 function svgNode(tag,attrs,text) {
@@ -193,6 +195,9 @@ function refresh() {
     [p.id,`(${p.x}, ${p.y})`,after?`(${after.x}, ${after.y})`:'Removed',after?distance(p,after).toFixed(3):'—'].forEach(value=>{const td=document.createElement('td');td.textContent=value;row.append(td);});
     $('changes').append(row);
   }
+  const awaitingPDF=pdfDraft!==null;
+  $('missing').disabled=awaitingPDF || loading; $('formation').disabled=awaitingPDF || loading;
+  $('run').disabled=awaitingPDF || loading; $('ai-run').disabled=awaitingPDF || loading;
   $('approve').disabled=!result?.valid || loading; $('reject').disabled=!result || loading; $('export-review').disabled=!result || loading;
 }
 function readHistory() { const records=JSON.parse(localStorage.getItem(storageKey)||'[]'); if(!Array.isArray(records)) throw Error('Invalid saved review history.'); return records; }
@@ -218,6 +223,7 @@ function clearPDFPreview() {
   pdfDraft=null;pdfSelected=new Set();$('pdf-preview').hidden=true;
   if(pdfURL)URL.revokeObjectURL(pdfURL);pdfURL=null;
   $('pdf-source').removeAttribute('href');$('pdf-status').textContent='';
+  if(routine)refresh();
 }
 function refreshPDFPreview() {
   if(!pdfDraft)return;
@@ -250,13 +256,13 @@ $('pdf-upload').onchange=async event=>{
     $('pdf-formation').replaceChildren(...data.pages.map((page,i)=>new Option(`Page ${page.page}: ${page.name}${page.importable?'':' — needs review / excluded'}`,i)));
     $('pdf-info').textContent=`${file.name} · ${data.pages.length} formations · stage ${data.routine.stage.width} × ${data.routine.stage.height} ft. ${(data.warnings||[]).join(' ')}`;
     $('pdf-preview').hidden=false;$('pdf-status').textContent='Extraction complete. Review the preview, then load selected formations.';
-    refreshPDFPreview();status('PDF preview ready. Your previous routine remains loaded until you confirm.');
+    refreshPDFPreview();$('absence-source').textContent='Finish the PDF preview above and click “Load selected formations” to use its dancer names and F-number labels here.';status('PDF preview ready. Click “Load selected formations” above to update the absence and formation lists.');
   } catch(error){if(version===generation && error.name!=='AbortError'){$('pdf-status').textContent=`Could not import PDF: ${error.message}`;status('PDF import failed. The previous routine is still loaded.',true);}}
   finally{event.target.value='';if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
 };
 $('pdf-formation').onchange=refreshPDFPreview;
 $('pdf-include').onchange=()=>{if(!pdfDraft)return;const index=Number($('pdf-formation').value);if(!pdfDraft.pages[index].importable)return;if($('pdf-include').checked)pdfSelected.add(index);else pdfSelected.delete(index);refreshPDFPreview();};
-$('pdf-cancel').onclick=()=>{clearPDFPreview();status('PDF import cancelled. Your current routine is unchanged.');};
+$('pdf-cancel').onclick=()=>{clearPDFPreview();$('absence-source').textContent=`Active routine: ${$('routine-info').textContent}`;status('PDF import cancelled. Your current routine is unchanged.');};
 $('pdf-confirm').onclick=()=>{
   if(!pdfDraft || !pdfSelected.size)return;
   const selected=pdfDraft.routine.formations.filter((_,i)=>pdfSelected.has(i));
@@ -318,6 +324,7 @@ async function requestJSON(url,body,signal) {
   return data;
 }
 async function generateRepair(useAI=false) {
+  if(pdfDraft){status('Finish the PDF import above before generating a repair.');return;}
   const instruction=$('ai-instruction').value.trim();
   if(useAI && !instruction){$('ai-status').textContent='Enter an instruction before requesting AI repair.';return;}
   resetProposal(useAI?'Interpreting AI instruction…':'Generating repair…');

@@ -26,7 +26,7 @@ function response(p,{valid=true,roster='normal'}={}) {
   p.context.fetch=async()=>({ok:true,json:async()=>({routine,valid,errors:valid?[]:['Spacing violation'],changed_assignments:1,total_displacement:1})});
 }
 test('imports populate selectors and malformed coordinates retain the loaded routine',async()=>{
-  const p=page();load(p);assert.equal(p.el('missing').options.length,2);assert.equal(p.el('formation').options[0].textContent,'1. Opening');
+  const p=page();load(p);assert.equal(p.el('missing').options.length,2);assert.equal(p.el('formation').options[0].textContent,'Opening');
   await p.el('upload').onchange({target:{files:[{name:'bad.json',text:async()=>JSON.stringify({...source,stage:{width:-1,height:6}})}],value:'bad.json'}});
   assert.match(p.el('status').textContent,/positive finite/);assert.equal(p.el('missing').options.length,2);
 });
@@ -182,4 +182,26 @@ test('actual Sway PDF upload, confirmation, and repair work together',async()=>{
   assert.equal(p.el('pdf-preview').hidden,false,p.el('pdf-status').textContent);assert.match(p.el('pdf-selection').textContent,/1 of 2/);
   p.el('pdf-confirm').onclick();assert.equal(p.run('routine.formations.length'),1);assert.equal(p.el('missing').options[0].textContent,'Alpha');
   await p.el('run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);assert.equal(p.run('result.routine.formations[0].dancers[0].id'),'Beta');
+});
+
+
+test('confirmed PDF names and exact nonconsecutive formation labels replace the demo selectors',async()=>{
+  const p=page();
+  const imported={stage:{width:38,height:28,units:'ft'},formations:['F1','F3','F7'].map(name=>({name,dancers:[{id:'Rhea',x:4,y:3},{id:'Samanvi',x:8,y:6}]}))};
+  const draft={routine:imported,pages:imported.formations.map((f,i)=>({page:i+1,name:f.name,importable:true,issues:[]})),warnings:[]};
+  p.context.fetch=async()=>({ok:true,json:async()=>draft});await pdfUpload(p,'kuthu.pdf');
+  assert.equal(p.el('missing').disabled,true);assert.equal(p.el('formation').disabled,true);assert.equal(p.el('run').disabled,true);assert.match(p.el('absence-source').textContent,/Load selected formations/);
+  // Omit F3; F7 must retain its original label rather than becoming F2.
+  p.el('pdf-formation').value='1';p.el('pdf-formation').onchange();p.el('pdf-include').checked=false;p.el('pdf-include').onchange();
+  p.el('pdf-confirm').onclick();
+  assert.deepEqual(p.el('missing').options.map(o=>o.textContent),['Rhea','Samanvi']);
+  assert.deepEqual(p.el('formation').options.map(o=>o.textContent),['F1','F7']);
+  assert.equal(p.el('missing').disabled,false);assert.equal(p.el('formation').disabled,false);assert.equal(p.el('run').disabled,false);assert.match(p.el('absence-source').textContent,/kuthu.pdf/);
+  p.el('missing').value='Samanvi';p.el('formation').value='1';p.el('formation').onchange();
+  assert.equal(p.run('routine.formations[Number($("formation").value)].name'),'F7');
+  p.context.fetch=async(url,options)=>{
+    const body=JSON.parse(options.body);assert.equal(body.missing,'Samanvi');assert.deepEqual(body.routine.formations.map(f=>f.name),['F1','F7']);
+    return {ok:true,json:async()=>({routine:{...body.routine,formations:body.routine.formations.map(f=>({...f,dancers:f.dancers.filter(d=>d.id!==body.missing)}))},valid:true,errors:[]})};
+  };
+  await p.el('run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);
 });
