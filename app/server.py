@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .repair import repair, validate
-from .openai_request import get_ai_preference
+from .gemini_request import get_gemini_preference as get_ai_preference
 
 app = FastAPI(title="FormationRescue Alpha")
 
