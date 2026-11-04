@@ -14,7 +14,7 @@
 <main>
   <section class="panel" aria-labelledby="load-title">
     <h2 id="load-title">1. Load a routine</h2>
-    <div class="controls"><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
+    <div class="controls"><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label><label>Example routine<select id="example"><option value="">Choose an example…</option></select></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
     <p id="routine-info" class="note"></p>
     <details><summary>JSON format</summary><p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p><pre>{
   "stage": {"width": 10, "height": 6},
@@ -60,6 +60,27 @@ const patterns = [
   ['Wide', i => [.8+(i%6)*1.55, 1.2+Math.floor(i/6)*3]],
   ['Chevron', i => [1+(i%6)*1.4, 1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]
 ];
+// Approximate choreography reconstructions supplied by the backend branch.
+const choreographyExamples={
+  "Ending Bhangra (12 performers)":{
+    names:['Shriya','Shivani','Sanjay','Teddy','Om','Haarika','Haasini','Letti','Tanmayi','Arun','Steve','Rhea'],
+    formations:[
+      {name:'F14 · Diamond / center column',points:{Shriya:[4.5,5.8],Shivani:[4.5,4.5],Sanjay:[4.5,3.2],Haarika:[4.5,1.9],Haasini:[7.5,5.8],Tanmayi:[7.5,4.5],Letti:[7.5,3.2],Rhea:[7.5,1.9],Arun:[6,5.2],Teddy:[6,4.0],Steve:[6,2.8],Om:[6,1.5]}},
+      {name:'F19 · Layered V',points:{Shriya:[2.2,5.1],Shivani:[3,4.5],Sanjay:[3.8,3.8],Haarika:[5,2.5],Om:[6,1.7],Rhea:[7,2.5],Letti:[8.2,3.8],Steve:[9,4.5],Tanmayi:[9.8,5.1],Arun:[5,4.5],Teddy:[6,3.6],Haasini:[7,4.5]}},
+      {name:'F20 · Two staggered rows',points:{Shriya:[2.0,5.4],Sanjay:[3.6,5.4],Arun:[5.2,5.4],Teddy:[6.8,5.4],Haasini:[8.4,5.4],Steve:[10,5.4],Shivani:[2.8,3.3],Haarika:[4.4,3.3],Om:[6,3.3],Rhea:[7.6,3.3],Letti:[9.2,3.3],Tanmayi:[10.8,3.3]}},
+      {name:'F21 · Layered ending',points:{Teddy:[6,5.8],Sanjay:[3,4.5],Arun:[4.8,4.5],Rhea:[7.2,4.5],Tanmayi:[9,4.5],Shriya:[2.2,3.1],Haarika:[4.1,3.1],Om:[6,3.1],Haasini:[7.9,3.1],Steve:[9.8,3.1],Shivani:[3,1.6],Letti:[9,1.6]}}
+    ]
+  },
+  "Kuthu (14 performers)":{
+    names:['Jai','Jaynelle','Steve','Druthi','Pranav','Rhea','Nitya','Om','Rithika','Samanvi','Sanjay','Arun','Anvita','Megha'],
+    formations:[
+      {name:'F1 · Two staggered groups',points:{Jai:[3.3,6.1],Steve:[1.8,5.6],Druthi:[4.1,5.6],Pranav:[7,5.6],Jaynelle:[8.6,6.1],Rhea:[10.1,5.6],Nitya:[1.1,3.5],Sanjay:[2.7,2.9],Arun:[4.2,2.9],Om:[5.3,3.5],Rithika:[6.6,3.5],Anvita:[7.8,2.9],Megha:[9.2,2.9],Samanvi:[10.6,3.5]}},
+      {name:'F7 · Layered chevron',points:{Rithika:[6,6.6],Jai:[4.2,6.1],Jaynelle:[7.8,6.1],Nitya:[2.7,5.1],Druthi:[6,5.1],Samanvi:[9.3,5.1],Sanjay:[4.2,4],Pranav:[6,4],Megha:[7.8,4],Steve:[2.7,2.7],Rhea:[9.3,2.7],Om:[4.2,1.6],Arun:[6,2.6],Anvita:[7.8,1.6]}},
+      {name:'F9 · Layered rows',points:{Nitya:[1.5,5.6],Jai:[3.5,5.6],Rithika:[6,5.6],Jaynelle:[8.5,5.6],Samanvi:[10.5,5.6],Sanjay:[2.8,4.1],Druthi:[4.8,4.1],Rhea:[7.2,4.1],Megha:[9.2,4.1],Steve:[4.5,2.6],Pranav:[6,2.6],Anvita:[7.5,2.6],Om:[5.2,1.1],Arun:[6.8,1.1]}},
+      {name:'F12 · Three rows',points:{Nitya:[2,5.5],Jai:[4,5.5],Rithika:[6,5.5],Samanvi:[8,5.5],Jaynelle:[10,5.5],Steve:[2.8,3.8],Sanjay:[4.5,3.8],Druthi:[6,3.8],Megha:[7.5,3.8],Anvita:[9.2,3.8],Om:[3.6,2.1],Pranav:[5.2,2.1],Rhea:[6.8,2.1],Arun:[8.4,2.1]}}
+    ]
+  }
+};
 function demoRoutine() {
   return {stage:{width:10,height:6}, formations:patterns.map(([name,fn]) => ({name,dancers:ids.map((id,i) => {const [x,y]=fn(i);return {id,x,y};})}))};
 }
@@ -86,7 +107,7 @@ function resetProposal(message='Selection changed. Generate a new repair.') {
   status(message); refresh();
 }
 function loadRoutine(value,label) {
-  validateRoutine(value); routine=value;
+  validateRoutine(value); routine=value; $('example').value='';
   $('missing').replaceChildren(...[...new Set(value.formations.flatMap(f=>f.dancers.map(p=>p.id)))].map(id=>new Option(id,id)));
   $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(`${i+1}. ${f.name}`,i)));
   $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}`;
@@ -159,6 +180,11 @@ $('upload').onchange=async event=>{
   try {const value=JSON.parse(await file.text());if(version!==generation)return;loadRoutine(value,file.name);}
   catch(error){if(version===generation)status(`Could not load routine: ${error.message} The previous routine is still loaded.`,true);}
   finally{event.target.value='';}
+};
+Object.keys(choreographyExamples).forEach(name=>$('example').append(new Option(name,name)));
+$('example').onchange=()=>{
+  const name=$('example').value, data=choreographyExamples[name];if(!data)return;
+  loadRoutine({stage:{width:12,height:8},formations:data.formations.map(f=>({name:f.name,dancers:data.names.map(id=>({id,x:f.points[id][0],y:f.points[id][1]}))}))},`${name} (approximate reconstruction)`);
 };
 $('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
 $('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
