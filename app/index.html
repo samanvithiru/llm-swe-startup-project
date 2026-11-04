@@ -14,8 +14,21 @@
 <main>
   <section class="panel" aria-labelledby="load-title">
     <h2 id="load-title">1. Load a routine</h2>
-    <div class="controls"><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label><label>Example routine<select id="example"><option value="">Choose an example…</option></select></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
+    <div class="controls"><label>Sway formations PDF<input id="pdf-upload" type="file" accept=".pdf,application/pdf"></label><label>Example routine<select id="example"><option value="">Choose an example…</option></select></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
+    <p class="note">Upload a 2D Sway PDF with named dancer markers. Review the extracted formations before loading. No JSON editing or AI key is needed. Scans and screenshots are not supported yet.</p>
+    <p id="pdf-status" class="note" role="status" aria-live="polite"></p>
+    <div id="pdf-preview" hidden>
+      <h3>Review PDF import</h3>
+      <p id="pdf-info" class="note"></p>
+      <div class="controls"><label>PDF formation<select id="pdf-formation"></select></label><label><span>Include this formation</span><input id="pdf-include" type="checkbox"></label><a id="pdf-source" target="_blank" rel="noopener">Open original PDF page</a></div>
+      <p id="pdf-page-status" class="note"></p>
+      <svg id="pdf-stage" class="stage" role="img" aria-label="Extracted PDF formation; backstage at top"></svg>
+      <div class="table-wrap"><table><caption>Extracted dancer positions (feet, measured from the top-left stage corner)</caption><thead><tr><th>Dancer</th><th>x</th><th>y</th></tr></thead><tbody id="pdf-dancers"></tbody></table></div>
+      <p id="pdf-selection" class="note"></p>
+      <div class="controls"><button id="pdf-confirm">Load selected formations</button><button id="pdf-cancel" class="secondary">Cancel import</button></div>
+    </div>
     <p id="routine-info" class="note"></p>
+    <details><summary>Advanced: import routine JSON</summary><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label></details>
     <details><summary>JSON format</summary><p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p><pre>{
   "stage": {"width": 10, "height": 6},
   "formations": [{
@@ -63,6 +76,7 @@ const storageKey = 'formationrescue.reviews.v1';
 let routine, result = null, review = null, generation = 0, controller = null, loading = false;
 let requestContext = null;
 let candidates = [];
+let pdfDraft = null, pdfURL = null, pdfName = "", pdfSelected = new Set();
 const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
 const patterns = [
   ['V', i => [1+(i%6)*1.4, .8+Math.abs(2.5-i%6)*.65+Math.floor(i/6)*2.2]],
@@ -126,10 +140,10 @@ function resetProposal(message='Selection changed. Generate a new repair.') {
   status(message); refresh();
 }
 function loadRoutine(value,label) {
-  validateRoutine(value); routine=value; $('example').value='';
+  validateRoutine(value); clearPDFPreview(); routine=value; $('example').value='';
   $('missing').replaceChildren(...[...new Set(value.formations.flatMap(f=>f.dancers.map(p=>p.id)))].map(id=>new Option(id,id)));
   $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(`${i+1}. ${f.name}`,i)));
-  $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}`;
+  $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}${value.stage.units?' '+value.stage.units:''}`;
   resetProposal('Routine loaded. Select an unavailable dancer, then generate a repair.');
 }
 function svgNode(tag,attrs,text) {
@@ -139,11 +153,16 @@ function svgNode(tag,attrs,text) {
   return node;
 }
 function distance(a,b) {return Math.hypot(a.x-b.x,a.y-b.y);}
-function draw(id,formation,original) {
-  const svg=$(id), {width,height}=routine.stage;
+function draw(id,formation,original,stage=routine.stage,showOutside=false) {
+  const svg=$(id), {width,height}=stage;
   const scale=600/Math.max(width,height), w=width*scale,h=height*scale;
-  svg.setAttribute('viewBox',`-24 -24 ${w+48} ${h+48}`); svg.replaceChildren();
+  const people=showOutside?(formation?.dancers||[]):[];
+  const left=Math.min(0,...people.map(p=>p.x*scale))-45, top=Math.min(0,...people.map(p=>p.y*scale))-45;
+  const right=Math.max(w,...people.map(p=>p.x*scale))+45, bottom=Math.max(h,...people.map(p=>p.y*scale))+45;
+  svg.setAttribute('viewBox',`${left} ${top} ${right-left} ${bottom-top}`); svg.replaceChildren();
   svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,fill:'none',stroke:'#9ba3c0'}));
+  svg.append(svgNode('text',{x:w/2,y:-22,'text-anchor':'middle',fill:'#555e74','font-size':12},'BACKSTAGE'));
+  svg.append(svgNode('text',{x:w/2,y:h+28,'text-anchor':'middle',fill:'#555e74','font-size':12},'AUDIENCE'));
   if(!formation) return;
   const before=new Map((original?.dancers||[]).map(p=>[p.id,p]));
   for(const p of formation.dancers) {
@@ -152,7 +171,7 @@ function draw(id,formation,original) {
       svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:p.x*scale,y2:p.y*scale,stroke:'#9b5700','stroke-width':2,'stroke-dasharray':'5 4'}));
       svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,fill:'none',stroke:'#9b5700','stroke-dasharray':'3 3'}));
     }
-    const absent=id==='original' && p.id===$('missing').value;
+    const absent=(id==='original' && p.id===$('missing').value) || (showOutside && (p.x<0 || p.y<0 || p.x>width || p.y>height));
     const g=svgNode('g',{});g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${absent?' — unavailable':moved?' — moved':''}`));
     g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,fill:absent?'#bc3434':moved?'#9b5700':'#5458b9'}));
     g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id.length>3?p.id.slice(0,3)+'…':p.id));
@@ -194,6 +213,57 @@ function download(name,value) {
   const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
   const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+
+function clearPDFPreview() {
+  pdfDraft=null;pdfSelected=new Set();$('pdf-preview').hidden=true;
+  if(pdfURL)URL.revokeObjectURL(pdfURL);pdfURL=null;
+  $('pdf-source').removeAttribute('href');$('pdf-status').textContent='';
+}
+function refreshPDFPreview() {
+  if(!pdfDraft)return;
+  const index=Number($('pdf-formation').value), formation=pdfDraft.routine.formations[index], report=pdfDraft.pages[index];
+  $('pdf-include').checked=pdfSelected.has(index);$('pdf-include').disabled=!report.importable;
+  $('pdf-source').href=`${pdfURL}#page=${report.page}`;
+  $('pdf-page-status').textContent=report.issues.length?`${formation.name} cannot be loaded for repair: ${report.issues.join(' ')} Offstage dancers are shown in red; their positions have not been changed.`:`${formation.name}: ${formation.dancers.length} dancers extracted. Check names and positions against the original PDF.`;
+  draw('pdf-stage',formation,null,pdfDraft.routine.stage,true);
+  $('pdf-dancers').replaceChildren();
+  for(const dancer of formation.dancers){const row=document.createElement('tr');for(const value of [dancer.id,dancer.x,dancer.y]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}$('pdf-dancers').append(row);}
+  const omitted=pdfDraft.routine.formations.filter((_,i)=>!pdfSelected.has(i)).map(f=>f.name);
+  $('pdf-selection').textContent=`${pdfSelected.size} of ${pdfDraft.pages.length} formations selected.${omitted.length?' Excluded: '+omitted.join(', ')+'.':''} Confirm only after reviewing the extracted positions. Left/right choreography has not been inferred.`;
+  $('pdf-confirm').disabled=pdfSelected.size===0;
+}
+$('pdf-upload').onchange=async event=>{
+  const file=event.target.files[0];if(!file)return;
+  clearPDFPreview();resetProposal('Reading Sway PDF…');
+  const version=generation;loading=true;$('run').disabled=true;$('ai-run').disabled=true;refresh();
+  controller=new AbortController();
+  try {
+    if(file.size>10*1024*1024)throw Error('PDF exceeds the 10 MB upload limit.');
+    const body=new FormData();body.append('file',file);
+    $('pdf-status').textContent='Extracting names and positions from PDF…';
+    const response=await fetch('/api/import/sway-pdf',{method:'POST',body,signal:controller.signal});
+    const data=await response.json();if(version!==generation)return;
+    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));
+    if(!data.routine?.stage || !Array.isArray(data.routine.formations) || !Array.isArray(data.pages) || data.pages.length!==data.routine.formations.length || !data.pages.length)throw Error('The server returned an unexpected PDF import response.');
+    pdfDraft=data;pdfName=file.name;pdfURL=URL.createObjectURL(file);
+    pdfSelected=new Set(data.pages.flatMap((page,i)=>page.importable?[i]:[]));
+    $('pdf-formation').replaceChildren(...data.pages.map((page,i)=>new Option(`Page ${page.page}: ${page.name}${page.importable?'':' — needs review / excluded'}`,i)));
+    $('pdf-info').textContent=`${file.name} · ${data.pages.length} formations · stage ${data.routine.stage.width} × ${data.routine.stage.height} ft. ${(data.warnings||[]).join(' ')}`;
+    $('pdf-preview').hidden=false;$('pdf-status').textContent='Extraction complete. Review the preview, then load selected formations.';
+    refreshPDFPreview();status('PDF preview ready. Your previous routine remains loaded until you confirm.');
+  } catch(error){if(version===generation && error.name!=='AbortError'){$('pdf-status').textContent=`Could not import PDF: ${error.message}`;status('PDF import failed. The previous routine is still loaded.',true);}}
+  finally{event.target.value='';if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
+};
+$('pdf-formation').onchange=refreshPDFPreview;
+$('pdf-include').onchange=()=>{if(!pdfDraft)return;const index=Number($('pdf-formation').value);if(!pdfDraft.pages[index].importable)return;if($('pdf-include').checked)pdfSelected.add(index);else pdfSelected.delete(index);refreshPDFPreview();};
+$('pdf-cancel').onclick=()=>{clearPDFPreview();status('PDF import cancelled. Your current routine is unchanged.');};
+$('pdf-confirm').onclick=()=>{
+  if(!pdfDraft || !pdfSelected.size)return;
+  const selected=pdfDraft.routine.formations.filter((_,i)=>pdfSelected.has(i));
+  try{const count=selected.length, total=pdfDraft.pages.length;loadRoutine({stage:{...pdfDraft.routine.stage},formations:selected},`${pdfName} (${count}/${total} PDF formations)`);status('PDF formations loaded. Select an unavailable dancer and generate a repair.');}
+  catch(error){$('pdf-status').textContent=`Cannot load selected formations: ${error.message}`;}
+};
+
 $('upload').onchange=async event=>{
   const file=event.target.files[0];if(!file)return;
   // Invalidate pending responses immediately, including while reading the file.
