@@ -3,23 +3,63 @@ from __future__ import annotations
 from math import dist
 
 
+
 def validate(routine: dict, missing: str | None = None, min_spacing: float = 0.6) -> list[str]:
     errors = []
     width, height = routine['stage']['width'], routine['stage']['height']
+
+    # Check that every formation has the same dancers
+    if routine['formations']:
+        expected_ids = {
+            p['id'] for p in routine['formations'][0]['dancers']
+        }
+
+        for fi, formation in enumerate(routine['formations'][1:], start=2):
+            current_ids = {
+                p['id'] for p in formation['dancers']
+            }
+
+            missing_ids = expected_ids - current_ids
+            extra_ids = current_ids - expected_ids
+
+            if missing_ids:
+                errors.append(
+                    f"Formation {fi}: missing dancers {sorted(missing_ids)}"
+                )
+
+            if extra_ids:
+                errors.append(
+                    f"Formation {fi}: unexpected dancers {sorted(extra_ids)}"
+                )
+
+    # Check each formation for invalid dancer positions
     for fi, formation in enumerate(routine['formations']):
         dancers = formation['dancers']
         ids = [p['id'] for p in dancers]
+
+        # Check for duplicate dancer IDs
         if len(ids) != len(set(ids)):
             errors.append(f'Formation {fi + 1}: duplicate dancer ID')
+
+        # Check if the unavailable dancer is still present
         if missing and missing in ids:
             errors.append(f'Formation {fi + 1}: unavailable dancer remains')
+
+        # Check that dancers are inside the stage
         for p in dancers:
             if not (0 <= p['x'] <= width and 0 <= p['y'] <= height):
-                errors.append(f"Formation {fi + 1}: {p['id']} outside stage")
+                errors.append(
+                    f"Formation {fi + 1}: {p['id']} outside stage"
+                )
+
+        # Check that dancers are not too close together
         for i, a in enumerate(dancers):
             for b in dancers[i + 1:]:
                 if dist((a['x'], a['y']), (b['x'], b['y'])) < min_spacing:
-                    errors.append(f"Formation {fi + 1}: {a['id']} and {b['id']} too close")
+                    errors.append(
+                        f"Formation {fi + 1}: {a['id']} and {b['id']} too close"
+                    )
+
     return errors
 
 
