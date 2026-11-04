@@ -1,50 +1,79 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FormationRescue — Choreography Preview</title>
-<style>
-:root{font-family:system-ui,-apple-system,sans-serif;color:#1b2440;background:#f4f5fb}*{box-sizing:border-box}body{margin:0}header{background:#292d64;color:white;padding:22px max(22px,calc((100% - 1120px)/2))}header h1{margin:0 0 5px;font-size:28px}header p{margin:0;color:#d9dcff}main{max-width:1160px;margin:24px auto;padding:0 18px}.panel{background:white;border-radius:15px;padding:22px;box-shadow:0 3px 20px #1111;margin-bottom:18px}h2{margin:0 0 15px;font-size:20px}.controls{display:flex;flex-wrap:wrap;align-items:end;gap:14px}label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}select,textarea{font:inherit;border:1px solid #cbd0df;border-radius:9px;padding:10px;background:white;color:#1b2440}select{min-width:175px}textarea{width:100%;min-height:80px;resize:vertical}button{font:inherit;border:0;border-radius:9px;background:#494bb4;color:white;padding:11px 17px;cursor:pointer;font-weight:600}button:disabled{opacity:.6;cursor:wait}.note{color:#626c83;font-size:14px;line-height:1.5}.stage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.stage-card h2{margin-bottom:7px}.stage{width:100%;height:auto;display:block;background:#edf0fa;border:1px solid #ccd0df;border-radius:10px}.legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:13px;color:#59647b}.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:middle}.swatch-line{display:inline-block;width:23px;border-top:2px dashed #e39a3a;vertical-align:middle;margin-right:5px}.layout-choices{margin:14px 0;padding:12px;border:1px solid #d9ddec;border-radius:10px;background:#f8f9fe}.layout-choices select{margin-top:6px}.metrics{font-size:14px;color:#39435d;margin-top:12px}.error{color:#ae3434}.success{color:#177a5c}.hint{background:#f1f2ff;padding:12px 14px;border-radius:9px;font-size:14px;color:#49517b;margin-top:12px}@media(max-width:740px){.stage-grid{grid-template-columns:1fr}.controls{align-items:stretch}.controls label,.controls button{width:100%}select{width:100%}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FormationRescue · Routine review</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#19213b;background:#f5f6fb}
+    *{box-sizing:border-box}body{margin:0}header{background:#292d64;color:white;padding:24px max(24px,6%)}header p{margin-bottom:0;color:#dddff8}h1{margin:0;font-size:28px}h2{margin-top:0;font-size:20px}main{max-width:1200px;margin:24px auto;padding:0 20px}.panel{background:white;border:1px solid #e1e3ef;border-radius:14px;padding:22px;margin-bottom:20px}.controls{display:flex;align-items:end;gap:16px;flex-wrap:wrap}label{display:grid;gap:7px;font-size:14px;font-weight:600}select,button,input,textarea{font:inherit}select,button,input[type=file]{padding:10px;border:1px solid #c5c9db;border-radius:8px;max-width:100%}button{background:#494bb4;color:white;cursor:pointer;border-color:#494bb4}button.secondary{background:white;color:#292d64}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #b28b00;outline-offset:3px}.note{color:#555e74;font-size:14px;line-height:1.6}.stages{display:grid;grid-template-columns:1fr 1fr;gap:20px}.stage{display:block;width:100%;background:#edf0fa;border:1px solid #ccd0df;border-radius:8px}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}.legend span::before{content:'●';margin-right:6px;color:#5458b9}.legend .absent::before{color:#bc3434}.legend .moved::before{color:#9b5700}textarea{display:block;width:100%;min-height:80px;border:1px solid #c5c9db;border-radius:8px;padding:10px;margin:8px 0 16px}#status{white-space:pre-wrap}#status.error{color:#a12828}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e1e3ef;padding:10px} .table-wrap{overflow:auto}details{margin-top:16px}pre{overflow:auto;font-size:13px}#summary{font-weight:600}#review-status{white-space:pre-wrap}@media(max-width:720px){.stages{grid-template-columns:1fr}.controls>*{width:100%}}
+  </style>
 </head>
 <body>
-<header><h1>FormationRescue</h1><p>Real choreography examples · Single-dancer absence</p></header>
+<header><h1>FormationRescue</h1><p>Single-dancer absence · Load, compare, and review your routine</p></header>
 <main>
-<section class="panel">
-<h2>Repair a formation</h2>
-<div class="controls">
-<label>Routine<select id="routineSelect"></select></label>
-<label>Formation<select id="formation"></select></label>
-<label>Unavailable dancer<select id="missing"></select></label>
-<button id="run">Generate repair</button>
-</div>
-<p id="status" class="note">Select a dancer, then generate a repair.</p>
-<div class="hint">These are approximate reconstructions of formations from your uploaded choreography PDFs, not exact digitized coordinates. The original names and formation labels are retained. A valid repair may still need a dance captain's visual review.</div>
-</section>
-<section class="panel">
-<h2>AI repair instructions</h2>
-<p class="note">Describe your priorities. Gemini interprets them as one of the backend's supported repair preferences.</p>
-<textarea id="aiInstruction" placeholder="Example: Keep the center dancers in place as much as possible."></textarea>
-<button id="aiRun">Generate AI-guided repair</button>
-<p id="aiStatus" class="note">AI preferences are limited to minimize_changes and preserve_center.</p>
-</section>
-<section class="panel">
-<div class="stage-grid">
-<div class="stage-card"><h2>Original</h2><svg id="original" class="stage" viewBox="0 0 600 400" role="img" aria-label="Original formation diagram"></svg></div>
-<div class="stage-card"><h2>Repaired</h2><svg id="repaired" class="stage" viewBox="0 0 600 400" role="img" aria-label="Repaired formation diagram"></svg></div>
-</div>
-<div id="layoutChoices" class="layout-choices" hidden><label>Compare repair layouts<select id="layoutSelect"></select></label><p class="note">Choose a layout to compare different valid column arrangements. These are suggestions, not guaranteed choreography solutions.</p></div>
-<div class="legend"><span><i class="dot" style="background:#565bc1"></i>Unchanged</span><span><i class="dot" style="background:#188e74"></i>Moved</span><span><i class="dot" style="background:#d85c65"></i>Unavailable</span><span><i class="swatch-line"></i>Movement path</span></div>
-<div id="metrics" class="metrics">Movement details appear after generating a repair.</div>
-</section>
-<section class="panel"><h2>Scope and limitations</h2><p class="note">FormationRescue removes one dancer, checks spacing and stage boundaries, and attempts shape-aware repair for supported patterns. It does not yet guarantee aesthetically ideal formations, collision-free transitions, or optimal movement across an entire routine. All choreography changes require captain review.</p></section>
+  <section class="panel" aria-labelledby="load-title">
+    <h2 id="load-title">1. Load a routine</h2>
+    <div class="controls"><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label><label>Example routine<select id="example"><option value="">Choose an example…</option></select></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
+    <p id="routine-info" class="note"></p>
+    <details><summary>JSON format</summary><p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p><pre>{
+  "stage": {"width": 10, "height": 6},
+  "formations": [{
+    "name": "Opening",
+    "dancers": [{"id": "A", "x": 2, "y": 3},
+                {"id": "B", "x": 5, "y": 3}]
+  }]
+}</pre></details>
+  </section>
+  <section class="panel" aria-labelledby="repair-title">
+    <h2 id="repair-title">2. Mark an absence</h2>
+    <div class="controls"><label>Unavailable dancer<select id="missing"></select></label><label>Formation to view<select id="formation"></select></label><label>Repair preference<select id="preference"><option value="minimize_changes">Minimize changes</option><option value="preserve_center">Preserve center</option></select></label><button id="run">Generate repair</button></div>
+    <p id="status" class="note" role="status" aria-live="polite">Select an unavailable dancer, then generate a repair.</p>
+  </section>
+  <section class="panel" aria-labelledby="ai-title">
+    <h2 id="ai-title">AI repair instructions</h2>
+    <label for="ai-instruction">Describe your priority</label>
+    <textarea id="ai-instruction" maxlength="2000" placeholder="Keep the center dancers in place as much as possible."></textarea>
+    <p class="note">AI translates this instruction into either “minimize changes” or “preserve center.” It does not generate choreography or optimize left/right step directions. Shape-specific repairs may prioritize their built-in layout rules.</p>
+    <button id="ai-run">Generate AI-guided repair</button>
+    <p id="ai-status" class="note" role="status" aria-live="polite">Manual preferences work without an AI service.</p>
+  </section>
+  <section class="panel" aria-label="Formation comparison">
+    <div class="legend"><span>Unchanged dancer</span><span class="absent">Unavailable dancer</span><span class="moved">Moved dancer / dashed travel path</span></div>
+    <label>Repair layout<select id="layout" disabled><option value="0">Generate a repair first</option></select></label>
+    <p id="layout-note" class="note">Alternative layouts are available for supported three-column formations.</p>
+    <p id="summary" class="note">No repair generated yet.</p>
+    <div class="stages"><div><h2>Original</h2><svg class="stage" id="original" role="img" aria-label="Original formation"></svg></div><div><h2>Proposed repair</h2><svg class="stage" id="repaired" role="img" aria-label="Proposed formation"></svg><p id="proposal-note" class="note">Generate a repair to see proposed positions.</p></div></div>
+    <div class="table-wrap"><table><caption>Position changes in the selected formation</caption><thead><tr><th>Dancer</th><th>Original (x, y)</th><th>Proposed (x, y)</th><th>Distance</th></tr></thead><tbody id="changes"></tbody></table></div>
+  </section>
+  <section class="panel" aria-labelledby="review-title">
+    <h2 id="review-title">3. Review the whole routine</h2>
+    <p class="note">Approval applies to all formations in this proposal. Geometric validation does not check choreography directions or transition feasibility; captain review is required. Decisions are stored only in this browser and can be downloaded with the proposal.</p>
+    <label for="review-note">Review notes (optional)</label><textarea id="review-note" maxlength="2000" placeholder="What works, or what needs to change?"></textarea>
+    <div class="controls"><button id="approve" disabled>Approve repair</button><button id="reject" class="secondary" disabled>Reject repair</button><button id="export-review" class="secondary" disabled>Download proposal and review</button></div>
+    <p id="review-status" class="note" role="status" aria-live="polite">No review recorded.</p>
+    <details><summary>Saved review history on this browser</summary><ul id="history"></ul></details>
+  </section>
 </main>
 <script>
-const STAGE={width:12,height:8};
-// Coordinates are approximate visual reconstructions from the two choreography PDFs.
-// The same dancer IDs are used across every formation in each routine.
-const DATA={
+'use strict';
+const $ = id => document.getElementById(id);
+const ns = 'http://www.w3.org/2000/svg';
+const storageKey = 'formationrescue.reviews.v1';
+let routine, result = null, review = null, generation = 0, controller = null, loading = false;
+let requestContext = null;
+let candidates = [];
+const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
+const patterns = [
+  ['V', i => [1+(i%6)*1.4, .8+Math.abs(2.5-i%6)*.65+Math.floor(i/6)*2.2]],
+  ['Two rows', i => [1+(i%6)*1.4, 2+Math.floor(i/6)*2]],
+  ['Diagonal', i => [1+(i%6)*1.4, 1+Math.floor(i/6)*2+(i%6)*.25]],
+  ['Columns', i => [2+(i%4)*2, 1+Math.floor(i/4)*1.5]],
+  ['Wide', i => [.8+(i%6)*1.55, 1.2+Math.floor(i/6)*3]],
+  ['Chevron', i => [1+(i%6)*1.4, 1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]
+];
+// Approximate choreography reconstructions supplied by the backend branch.
+const choreographyExamples={
   "Ending Bhangra (12 performers)":{
     names:['Shriya','Shivani','Sanjay','Teddy','Om','Haarika','Haasini','Letti','Tanmayi','Arun','Steve','Rhea'],
     formations:[
@@ -64,53 +93,215 @@ const DATA={
     ]
   }
 };
-const routineSelect=document.getElementById('routineSelect');
-const formationSelect=document.getElementById('formation');
-const missingSelect=document.getElementById('missing');
-const statusEl=document.getElementById('status');
-const metricsEl=document.getElementById('metrics');
-const aiStatus=document.getElementById('aiStatus');
-const aiInstruction=document.getElementById('aiInstruction');
-const aiRun=document.getElementById('aiRun');
-const runButton=document.getElementById('run');
-let repaired=null;
-let options=[];
-const layoutChoices=document.getElementById('layoutChoices');
-const layoutSelect=document.getElementById('layoutSelect');
-const MEANINGFUL_MOVE=0.15;
-layoutSelect.onchange=()=>{repaired=options[Number(layoutSelect.value)].routine;refresh();updateVisibleMetrics()};
-function updateVisibleMetrics(){
-  if(!repaired)return;
-  const i=Number(formationSelect.value||0),before=buildRoutine().formations[i].dancers;
-  const originals=Object.fromEntries(before.map(p=>[p.id,p]));
-  const after=repaired.formations[i].dancers;
-  const distances=after.map(p=>Math.hypot(p.x-originals[p.id].x,p.y-originals[p.id].y));
-  const meaningful=distances.filter(d=>d>=MEANINGFUL_MOVE).length;
-  const total=distances.reduce((a,b)=>a+b,0);
-  metricsEl.textContent=`Showing formation ${i+1}: ${meaningful} meaningful moves (at least ${MEANINGFUL_MOVE} stage units) · Total displacement: ${total.toFixed(2)} stage units. Small adjustments are not highlighted. Other formations may also change.`;
+function demoRoutine() {
+  return {stage:{width:10,height:6}, formations:patterns.map(([name,fn]) => ({name,dancers:ids.map((id,i) => {const [x,y]=fn(i);return {id,x,y};})}))};
 }
-function currentData(){return DATA[routineSelect.value]}
-function buildRoutine(){const data=currentData();return {stage:{...STAGE},formations:data.formations.map(f=>({name:f.name,dancers:data.names.map(id=>({id,x:f.points[id][0],y:f.points[id][1]}))}))}}
-function refill(){const data=currentData();formationSelect.replaceChildren();missingSelect.replaceChildren();data.formations.forEach((f,i)=>formationSelect.add(new Option(f.name,i)));data.names.forEach(id=>missingSelect.add(new Option(id,id)));repaired=null;options=[];layoutChoices.hidden=true;statusEl.textContent='Select a dancer, then generate a repair.';metricsEl.textContent='Movement details appear after generating a repair.';refresh()}
-Object.keys(DATA).forEach(name=>routineSelect.add(new Option(name,name)));
-routineSelect.onchange=refill;
-formationSelect.onchange=()=>{refresh();updateVisibleMetrics()};
-missingSelect.onchange=()=>{repaired=null;options=[];layoutChoices.hidden=true;metricsEl.textContent='Movement details appear after generating a repair.';refresh()};
-function svgNode(tag,attributes={},text){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attributes))n.setAttribute(k,String(v));if(text!==undefined)n.textContent=text;return n}
-const px=x=>x*50,py=y=>400-y*50;
-function draw(target,formation,removed,originalFormation){const svg=document.getElementById(target);svg.replaceChildren();const grid=svgNode('g');for(let x=0;x<=12;x++){grid.append(svgNode('line',{x1:px(x),y1:0,x2:px(x),y2:400,stroke:'#d8ddec','stroke-width':1}))}for(let y=0;y<=8;y++){grid.append(svgNode('line',{x1:0,y1:py(y),x2:600,y2:py(y),stroke:'#d8ddec','stroke-width':1}))}svg.append(grid);svg.append(svgNode('text',{x:300,y:18,'text-anchor':'middle',fill:'#748099','font-size':13},'BACKSTAGE'));svg.append(svgNode('text',{x:300,y:393,'text-anchor':'middle',fill:'#748099','font-size':13},'AUDIENCE'));const orig=Object.fromEntries((originalFormation?.dancers||[]).map(p=>[p.id,p]));if(originalFormation){for(const p of formation.dancers){const old=orig[p.id];if(old&&Math.hypot(p.x-old.x,p.y-old.y)>=MEANINGFUL_MOVE){svg.append(svgNode('line',{x1:px(old.x),y1:py(old.y),x2:px(p.x),y2:py(p.y),stroke:'#e39a3a','stroke-width':2.5,'stroke-dasharray':'7 5'}));svg.append(svgNode('circle',{cx:px(old.x),cy:py(old.y),r:6,fill:'none',stroke:'#e39a3a','stroke-width':1.5}))}}}for(const p of formation.dancers){const old=orig[p.id];const moved=old&&Math.hypot(p.x-old.x,p.y-old.y)>=MEANINGFUL_MOVE;const color=p.id===removed?'#d85c65':moved?'#188e74':'#565bc1';svg.append(svgNode('circle',{cx:px(p.x),cy:py(p.y),r:14,fill:color,stroke:'white','stroke-width':1.5}));svg.append(svgNode('text',{x:px(p.x),y:py(p.y)-20,'text-anchor':'middle',fill:'#26314f','font-size':12,'font-weight':600},p.id))}}
-function refresh(){const i=Number(formationSelect.value||0);const routine=buildRoutine();draw('original',routine.formations[i],missingSelect.value);draw('repaired',(repaired||routine).formations[i],null,repaired?routine.formations[i]:null)}
-async function requestRepair(preference){runButton.disabled=true;try{const response=await fetch('/api/repair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({routine:buildRoutine(),missing:missingSelect.value,preference})});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail));repaired=data.routine;
-options=(data.alternatives||[]).filter(o=>o.formation_index===Number(formationSelect.value));
-if(options.length){
-  layoutChoices.hidden=false;layoutSelect.replaceChildren();
-  options.forEach((o,i)=>layoutSelect.add(new Option(o.label,i)));
-  layoutSelect.value='0';repaired=options[0].routine;
-}else{layoutChoices.hidden=true}
-statusEl.className='note '+(data.valid?'success':'error');statusEl.textContent=(data.valid?'Valid repair':'Repair has validation issues')+' · '+data.errors.length+' validation errors';refresh();updateVisibleMetrics()}finally{runButton.disabled=false}}
-runButton.onclick=async()=>{try{await requestRepair('minimize_changes');aiStatus.textContent='Baseline repair generated without AI.'}catch(e){statusEl.className='note error';statusEl.textContent='Repair failed: '+e.message}};
-aiRun.onclick=async()=>{const instruction=aiInstruction.value.trim();if(!instruction){aiStatus.textContent='Please enter an AI instruction.';return}aiRun.disabled=true;aiStatus.textContent='Interpreting your instruction...';try{const response=await fetch('/api/ai-preference',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instruction})});const data=await response.json();if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail));await requestRepair(data.preference);aiStatus.textContent='AI selected preference: '+data.preference+'. Repair generated.'}catch(e){aiStatus.textContent='AI-guided repair failed: '+e.message}finally{aiRun.disabled=false}};
-refill();
+function validateRoutine(value, allowEmptyFormations=false) {
+  if (!value || !value.stage || !Number.isFinite(value.stage.width) || !Number.isFinite(value.stage.height) || value.stage.width<=0 || value.stage.height<=0) throw Error('Stage width and height must be positive finite numbers.');
+  if (!Array.isArray(value.formations) || !value.formations.length) throw Error('Provide at least one formation.');
+  value.formations.forEach((f,i) => {
+    if (!f || typeof f.name!=='string' || !f.name.trim() || !Array.isArray(f.dancers) || (!allowEmptyFormations && !f.dancers.length)) throw Error(`Formation ${i+1} needs a name and at least one dancer.`);
+    const seen=new Set();
+    if(i>0){
+      const expected=value.formations[0].dancers.map(p=>p.id).sort();
+      if(JSON.stringify(f.dancers.map(p=>p?.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: dancer roster must match the first formation.`);
+    }
+    f.dancers.forEach(p => {
+      if (!p || typeof p.id!=='string' || !p.id.trim()) throw Error(`Formation ${i+1}: every dancer needs a nonempty string ID.`);
+      if (seen.has(p.id)) throw Error(`Formation ${i+1}: duplicate dancer ID ${p.id}.`);
+      seen.add(p.id);
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw Error(`Formation ${i+1}, dancer ${p.id}: x and y must be finite numbers.`);
+      if (p.x<0 || p.x>value.stage.width || p.y<0 || p.y>value.stage.height) throw Error(`Formation ${i+1}, dancer ${p.id}: coordinates are outside the stage.`);
+    });
+  });
+  return value;
+}
+function status(message,error=false) { $('status').textContent=message; $('status').classList.toggle('error',error); }
+function resetProposal(message='Selection changed. Generate a new repair.') {
+  generation++; controller?.abort(); controller=null; loading=false; result=null; review=null; candidates=[];
+  $('layout').replaceChildren(new Option('Generate a repair first','0')); $('layout').disabled=true;
+  $('layout-note').textContent='Alternative layouts are available for supported three-column formations.';
+  $('run').disabled=false; $('ai-run').disabled=false; requestContext=null;
+  $('ai-status').textContent='Manual preferences work without an AI service.'; $('review-note').value=''; $('review-status').textContent='No review recorded.';
+  status(message); refresh();
+}
+function loadRoutine(value,label) {
+  validateRoutine(value); routine=value; $('example').value='';
+  $('missing').replaceChildren(...[...new Set(value.formations.flatMap(f=>f.dancers.map(p=>p.id)))].map(id=>new Option(id,id)));
+  $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(`${i+1}. ${f.name}`,i)));
+  $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}`;
+  resetProposal('Routine loaded. Select an unavailable dancer, then generate a repair.');
+}
+function svgNode(tag,attrs,text) {
+  const node=document.createElementNS(ns,tag);
+  Object.entries(attrs).forEach(([key,value])=>node.setAttribute(key,value));
+  if(text!==undefined) node.textContent=text;
+  return node;
+}
+function distance(a,b) {return Math.hypot(a.x-b.x,a.y-b.y);}
+function draw(id,formation,original) {
+  const svg=$(id), {width,height}=routine.stage;
+  const scale=600/Math.max(width,height), w=width*scale,h=height*scale;
+  svg.setAttribute('viewBox',`-24 -24 ${w+48} ${h+48}`); svg.replaceChildren();
+  svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,fill:'none',stroke:'#9ba3c0'}));
+  if(!formation) return;
+  const before=new Map((original?.dancers||[]).map(p=>[p.id,p]));
+  for(const p of formation.dancers) {
+    const old=before.get(p.id), moved=old && distance(p,old)>0.00001;
+    if(moved) {
+      svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:p.x*scale,y2:p.y*scale,stroke:'#9b5700','stroke-width':2,'stroke-dasharray':'5 4'}));
+      svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,fill:'none',stroke:'#9b5700','stroke-dasharray':'3 3'}));
+    }
+    const absent=id==='original' && p.id===$('missing').value;
+    const g=svgNode('g',{});g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${absent?' — unavailable':moved?' — moved':''}`));
+    g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,fill:absent?'#bc3434':moved?'#9b5700':'#5458b9'}));
+    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id.length>3?p.id.slice(0,3)+'…':p.id));
+    if(p.id.length>3)g.append(svgNode('text',{x:p.x*scale,y:p.y*scale-21,'text-anchor':'middle',fill:'#19213b','font-size':11},p.id));
+    svg.append(g);
+  }
+}
+function refresh() {
+  if(!routine) return;
+  const i=Number($('formation').value), original=routine.formations[i], proposed=result?.routine.formations[i];
+  draw('original',original); draw('repaired',proposed,original);
+  $('proposal-note').textContent=result ? (result.valid?'Review moved positions and transitions before approval.':'Invalid proposal. Approval is disabled; review the validation errors.') : 'Generate a repair to see proposed positions.';
+  $('summary').textContent=result ? `${result.candidate_label || 'Primary repair'} · ${result.changed_assignments ?? '—'} moved positions across the routine · total displacement: ${result.total_displacement ?? '—'} stage units` : 'No repair generated yet.';
+  $('changes').replaceChildren();
+  if(proposed) for(const p of original.dancers) {
+    const after=proposed.dancers.find(q=>q.id===p.id);
+    if(after && distance(p,after)<=0.00001) continue;
+    const row=document.createElement('tr');
+    [p.id,`(${p.x}, ${p.y})`,after?`(${after.x}, ${after.y})`:'Removed',after?distance(p,after).toFixed(3):'—'].forEach(value=>{const td=document.createElement('td');td.textContent=value;row.append(td);});
+    $('changes').append(row);
+  }
+  $('approve').disabled=!result?.valid || loading; $('reject').disabled=!result || loading; $('export-review').disabled=!result || loading;
+}
+function readHistory() { const records=JSON.parse(localStorage.getItem(storageKey)||'[]'); if(!Array.isArray(records)) throw Error('Invalid saved review history.'); return records; }
+function showHistory() {
+  $('history').replaceChildren();
+  try {for(const record of readHistory().slice().reverse()) {const li=document.createElement('li');li.textContent=`${record.reviewed_at} · ${record.decision} · unavailable dancer ${record.missing}${record.notes?' · '+record.notes:''}`;$('history').append(li);}}
+  catch {const li=document.createElement('li');li.textContent='Browser review storage is unavailable. You can still download your current review.';$('history').append(li);}
+  if(!$('history').children.length){const li=document.createElement('li');li.textContent='No saved reviews yet.';$('history').append(li);}
+}
+function recordReview(decision) {
+  if(!result || (decision==='approved' && !result.valid)) return;
+  const record={decision,reviewed_at:new Date().toISOString(),missing:$('missing').value,notes:$('review-note').value,original:routine,proposal:result,request:requestContext};
+  try {const history=readHistory();history.push(record);localStorage.setItem(storageKey,JSON.stringify(history));review=record;$('review-status').textContent=`Repair ${decision}. Saved in this browser at ${new Date(record.reviewed_at).toLocaleString()}.`;}
+  catch {review=record;$('review-status').textContent=`Repair ${decision}, but browser storage failed. Download the proposal and review to keep this decision.`;}
+  showHistory();
+}
+function download(name,value) {
+  const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$('upload').onchange=async event=>{
+  const file=event.target.files[0];if(!file)return;
+  // Invalidate pending responses immediately, including while reading the file.
+  resetProposal('Reading routine file…');const version=generation;
+  try {const value=JSON.parse(await file.text());if(version!==generation)return;loadRoutine(value,file.name);}
+  catch(error){if(version===generation)status(`Could not load routine: ${error.message} The previous routine is still loaded.`,true);}
+  finally{event.target.value='';}
+};
+Object.keys(choreographyExamples).forEach(name=>$('example').append(new Option(name,name)));
+$('example').onchange=()=>{
+  const name=$('example').value, data=choreographyExamples[name];if(!data)return;
+  loadRoutine({stage:{width:12,height:8},formations:data.formations.map(f=>({name:f.name,dancers:data.names.map(id=>({id,x:f.points[id][0],y:f.points[id][1]}))}))},`${name} (approximate reconstruction)`);
+};
+$('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
+$('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
+$('preference').onchange=()=>resetProposal('Preference changed. Generate a new repair.');
+$('ai-instruction').oninput=()=>resetProposal('Instruction changed. Generate a new repair.');
+// Validate every candidate against the request before allowing review or export.
+function checkRepairedRoutine(value) {
+  validateRoutine(value,true);
+  if(value.stage.width!==routine.stage.width || value.stage.height!==routine.stage.height || value.formations.length!==routine.formations.length)throw Error('Repair changed the stage or formation count.');
+  value.formations.forEach((f,i)=>{
+    const expected=routine.formations[i].dancers.filter(p=>p.id!==$('missing').value).map(p=>p.id).sort();
+    if(f.name!==routine.formations[i].name || JSON.stringify(f.dancers.map(p=>p.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: repair returned an unexpected dancer roster or formation order.`);
+  });
+}
+function geometryErrors(value) {
+  const errors=[];
+  value.formations.forEach((f,fi)=>f.dancers.forEach((p,i)=>{
+    for(const other of f.dancers.slice(i+1))if(distance(p,other)<0.6)errors.push(`Formation ${fi+1}: ${p.id} and ${other.id} too close.`);
+  }));
+  return errors;
+}
+function movementMetrics(value) {
+  let changed=0,total=0;
+  value.formations.forEach((f,i)=>{
+    const before=new Map(routine.formations[i].dancers.map(p=>[p.id,p]));
+    f.dancers.forEach(p=>{const delta=distance(p,before.get(p.id));if(delta>0.00001){changed++;total+=delta;}});
+  });
+  return {changed_assignments:changed,total_displacement:Math.round(total*10000)/10000};
+}
+$('layout').onchange=()=>{
+  const candidate=candidates[Number($('layout').value)];if(!candidate)return;
+  result=candidate;review=null;$('review-note').value='';$('review-status').textContent='Layout changed. No review recorded for this selection.';
+  status(`${result.candidate_label}: ${result.valid?'Geometry checks passed.':'Proposal failed validation.'}${result.note?'\n'+result.note:''}`,!result.valid);refresh();
+};
+const supportedPreferences = ['minimize_changes','preserve_center'];
+async function requestJSON(url,body,signal) {
+  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal,body:JSON.stringify(body)});
+  const data=await response.json();
+  if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));
+  return data;
+}
+async function generateRepair(useAI=false) {
+  const instruction=$('ai-instruction').value.trim();
+  if(useAI && !instruction){$('ai-status').textContent='Enter an instruction before requesting AI repair.';return;}
+  resetProposal(useAI?'Interpreting AI instruction…':'Generating repair…');
+  loading=true;$('run').disabled=true;$('ai-run').disabled=true;refresh();
+  const version=generation;controller=new AbortController();const signal=controller.signal;
+  let preference=$('preference').value;
+  try {
+    if(useAI){
+      $('ai-status').textContent='Interpreting your instruction…';
+      const parsed=await requestJSON('/api/ai-preference',{instruction},signal);
+      if(version!==generation)return;
+      if(!supportedPreferences.includes(parsed.preference))throw Error('AI returned an unsupported repair preference.');
+      preference=parsed.preference;
+      $('preference').value=preference;
+      $('ai-status').textContent=`AI selected: ${preference}. Generating repair…`;
+    }
+    if(!supportedPreferences.includes(preference))throw Error('Select a supported repair preference.');
+    const data=await requestJSON('/api/repair',{routine,missing:$('missing').value,preference},signal);
+    if(version!==generation)return;
+    if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || (data.valid && data.errors.length))throw Error('The server returned an unexpected repair response.');
+    checkRepairedRoutine(data.routine);
+    const primaryErrors=geometryErrors(data.routine);
+    if(data.valid && primaryErrors.length)throw Error(primaryErrors.join(' '));
+    requestContext={preference,instruction:useAI?instruction:null};
+    candidates=[{...data,...movementMetrics(data.routine),candidate_label:'Primary repair'}];
+    let skipped=0;
+    for(const option of (Array.isArray(data.alternatives)?data.alternatives:[])){
+      try {
+        if(typeof option.label!=='string' || !Number.isInteger(option.formation_index) || option.formation_index<0 || option.formation_index>=routine.formations.length)throw Error('Malformed alternative');
+        checkRepairedRoutine(option.routine);
+        const errors=geometryErrors(option.routine);if(errors.length)throw Error('Invalid alternative');
+        candidates.push({...data,routine:option.routine,alternatives:[],valid:true,errors:[],...movementMetrics(option.routine),candidate_label:`${option.label} · ${routine.formations[option.formation_index].name}`});
+      } catch {skipped++;}
+    }
+    $('layout').replaceChildren(...candidates.map((candidate,i)=>new Option(candidate.candidate_label,i)));
+    $('layout').value='0';$('layout').disabled=candidates.length<2;
+    $('layout-note').textContent=`${candidates.length-1} alternative layouts available. Metrics and decisions apply to the selected whole-routine proposal.${skipped?' Invalid or malformed alternatives were omitted.':''}`;
+    result=candidates[0];
+    status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
+    if(useAI)$('ai-status').textContent=`AI selected: ${preference}. Repair received; review its validation status below.`;
+  } catch(error) {
+    if(version===generation && error.name!=='AbortError'){
+      status(`Repair failed: ${error.message}`,true);
+      if(useAI)$('ai-status').textContent=`AI-guided repair failed: ${error.message} You can use the manual preference controls.`;
+    }
+  } finally {if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
+}
+$('run').onclick=()=>generateRepair();
+$('ai-run').onclick=()=>generateRepair(true);
+$('approve').onclick=()=>recordReview('approved');$('reject').onclick=()=>recordReview('rejected');
+$('review-note').oninput=()=>{if(review)$('review-status').textContent='Notes changed since the last recorded decision. Approve or reject again to save the updated notes.';};
+$('export-source').onclick=()=>download('formationrescue-routine.json',routine);
+$('export-review').onclick=()=>{if(result)download('formationrescue-review.json',{original:routine,missing:$('missing').value,proposal:result,request:requestContext,review:review?{decision:review.decision,reviewed_at:review.reviewed_at,notes:review.notes}:null,draft_notes:$('review-note').value});};
+loadRoutine(demoRoutine(),'Demo routine');showHistory();
 </script>
 </body>
 </html>
