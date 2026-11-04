@@ -15,6 +15,7 @@ function page() {
   const context={document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element(),createElementNS:()=>new Element(),body:new Element()},Option:class{constructor(text,value){this.textContent=text;this.value=value;}},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)},AbortController,console,setTimeout,Blob,URL};
   vm.createContext(context);
   const script=readFileSync('app/index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+  context.document.getElementById('preference').value='minimize_changes';
   vm.runInContext(script,context);
   return {context,el:id=>context.document.getElementById(id),run:code=>vm.runInContext(code,context),storage};
 }

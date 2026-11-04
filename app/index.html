@@ -27,8 +27,16 @@
   </section>
   <section class="panel" aria-labelledby="repair-title">
     <h2 id="repair-title">2. Mark an absence</h2>
-    <div class="controls"><label>Unavailable dancer<select id="missing"></select></label><label>Formation to view<select id="formation"></select></label><button id="run">Generate repair</button></div>
+    <div class="controls"><label>Unavailable dancer<select id="missing"></select></label><label>Formation to view<select id="formation"></select></label><label>Repair preference<select id="preference"><option value="minimize_changes">Minimize changes</option><option value="preserve_center">Preserve center</option></select></label><button id="run">Generate repair</button></div>
     <p id="status" class="note" role="status" aria-live="polite">Select an unavailable dancer, then generate a repair.</p>
+  </section>
+  <section class="panel" aria-labelledby="ai-title">
+    <h2 id="ai-title">AI repair instructions</h2>
+    <label for="ai-instruction">Describe your priority</label>
+    <textarea id="ai-instruction" maxlength="2000" placeholder="Keep the center dancers in place as much as possible."></textarea>
+    <p class="note">AI translates this instruction into either “minimize changes” or “preserve center.” It does not generate choreography or optimize left/right step directions. Shape-specific repairs may prioritize their built-in layout rules.</p>
+    <button id="ai-run">Generate AI-guided repair</button>
+    <p id="ai-status" class="note" role="status" aria-live="polite">Manual preferences work without an AI service.</p>
   </section>
   <section class="panel" aria-label="Formation comparison">
     <div class="legend"><span>Unchanged dancer</span><span class="absent">Unavailable dancer</span><span class="moved">Moved dancer / dashed travel path</span></div>
@@ -51,6 +59,7 @@ const $ = id => document.getElementById(id);
 const ns = 'http://www.w3.org/2000/svg';
 const storageKey = 'formationrescue.reviews.v1';
 let routine, result = null, review = null, generation = 0, controller = null, loading = false;
+let requestContext = null;
 const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
 const patterns = [
   ['V', i => [1+(i%6)*1.4, .8+Math.abs(2.5-i%6)*.65+Math.floor(i/6)*2.2]],
@@ -103,7 +112,8 @@ function validateRoutine(value, allowEmptyFormations=false) {
 function status(message,error=false) { $('status').textContent=message; $('status').classList.toggle('error',error); }
 function resetProposal(message='Selection changed. Generate a new repair.') {
   generation++; controller?.abort(); controller=null; loading=false; result=null; review=null;
-  $('run').disabled=false; $('review-note').value=''; $('review-status').textContent='No review recorded.';
+  $('run').disabled=false; $('ai-run').disabled=false; requestContext=null;
+  $('ai-status').textContent='Manual preferences work without an AI service.'; $('review-note').value=''; $('review-status').textContent='No review recorded.';
   status(message); refresh();
 }
 function loadRoutine(value,label) {
@@ -164,7 +174,7 @@ function showHistory() {
 }
 function recordReview(decision) {
   if(!result || (decision==='approved' && !result.valid)) return;
-  const record={decision,reviewed_at:new Date().toISOString(),missing:$('missing').value,notes:$('review-note').value,original:routine,proposal:result};
+  const record={decision,reviewed_at:new Date().toISOString(),missing:$('missing').value,notes:$('review-note').value,original:routine,proposal:result,request:requestContext};
   try {const history=readHistory();history.push(record);localStorage.setItem(storageKey,JSON.stringify(history));review=record;$('review-status').textContent=`Repair ${decision}. Saved in this browser at ${new Date(record.reviewed_at).toLocaleString()}.`;}
   catch {review=record;$('review-status').textContent=`Repair ${decision}, but browser storage failed. Download the proposal and review to keep this decision.`;}
   showHistory();
@@ -188,13 +198,35 @@ $('example').onchange=()=>{
 };
 $('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
 $('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
-$('run').onclick=async()=>{
-  resetProposal('Generating repair…');loading=true;$('run').disabled=true;refresh();
-  const version=generation;controller=new AbortController();
+$('preference').onchange=()=>resetProposal('Preference changed. Generate a new repair.');
+$('ai-instruction').oninput=()=>resetProposal('Instruction changed. Generate a new repair.');
+const supportedPreferences = ['minimize_changes','preserve_center'];
+async function requestJSON(url,body,signal) {
+  const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},signal,body:JSON.stringify(body)});
+  const data=await response.json();
+  if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));
+  return data;
+}
+async function generateRepair(useAI=false) {
+  const instruction=$('ai-instruction').value.trim();
+  if(useAI && !instruction){$('ai-status').textContent='Enter an instruction before requesting AI repair.';return;}
+  resetProposal(useAI?'Interpreting AI instruction…':'Generating repair…');
+  loading=true;$('run').disabled=true;$('ai-run').disabled=true;refresh();
+  const version=generation;controller=new AbortController();const signal=controller.signal;
+  let preference=$('preference').value;
   try {
-    const response=await fetch('/api/repair',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({routine,missing:$('missing').value})});
-    const data=await response.json();if(version!==generation)return;
-    if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail||data));
+    if(useAI){
+      $('ai-status').textContent='Interpreting your instruction…';
+      const parsed=await requestJSON('/api/ai-preference',{instruction},signal);
+      if(version!==generation)return;
+      if(!supportedPreferences.includes(parsed.preference))throw Error('AI returned an unsupported repair preference.');
+      preference=parsed.preference;
+      $('preference').value=preference;
+      $('ai-status').textContent=`AI selected: ${preference}. Generating repair…`;
+    }
+    if(!supportedPreferences.includes(preference))throw Error('Select a supported repair preference.');
+    const data=await requestJSON('/api/repair',{routine,missing:$('missing').value,preference},signal);
+    if(version!==generation)return;
     validateRoutine(data.routine,true);
     if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || data.routine.formations.length!==routine.formations.length)throw Error('The server returned an unexpected repair response.');
     // Never enable approval if the absent dancer remains or the roster changes.
@@ -202,14 +234,22 @@ $('run').onclick=async()=>{
       const expected=routine.formations[i].dancers.filter(p=>p.id!==$('missing').value).map(p=>p.id).sort();
       if(JSON.stringify(f.dancers.map(p=>p.id).sort())!==JSON.stringify(expected))throw Error(`Formation ${i+1}: repair returned an unexpected dancer roster.`);
     });
-    result=data;status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
-  } catch(error) {if(version===generation && error.name!=='AbortError')status(`Repair failed: ${error.message}`,true);}
-  finally {if(version===generation){loading=false;controller=null;$('run').disabled=false;refresh();}}
-};
+    result=data;requestContext={preference,instruction:useAI?instruction:null};
+    status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
+    if(useAI)$('ai-status').textContent=`AI selected: ${preference}. Repair received; review its validation status below.`;
+  } catch(error) {
+    if(version===generation && error.name!=='AbortError'){
+      status(`Repair failed: ${error.message}`,true);
+      if(useAI)$('ai-status').textContent=`AI-guided repair failed: ${error.message} You can use the manual preference controls.`;
+    }
+  } finally {if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
+}
+$('run').onclick=()=>generateRepair();
+$('ai-run').onclick=()=>generateRepair(true);
 $('approve').onclick=()=>recordReview('approved');$('reject').onclick=()=>recordReview('rejected');
 $('review-note').oninput=()=>{if(review)$('review-status').textContent='Notes changed since the last recorded decision. Approve or reject again to save the updated notes.';};
 $('export-source').onclick=()=>download('formationrescue-routine.json',routine);
-$('export-review').onclick=()=>{if(result)download('formationrescue-review.json',{original:routine,missing:$('missing').value,proposal:result,review:review?{decision:review.decision,reviewed_at:review.reviewed_at,notes:review.notes}:null,draft_notes:$('review-note').value});};
+$('export-review').onclick=()=>{if(result)download('formationrescue-review.json',{original:routine,missing:$('missing').value,proposal:result,request:requestContext,review:review?{decision:review.decision,reviewed_at:review.reviewed_at,notes:review.notes}:null,draft_notes:$('review-note').value});};
 loadRoutine(demoRoutine(),'Demo routine');showHistory();
 </script>
 </body>
