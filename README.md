@@ -1,6 +1,6 @@
 # FormationRescue Alpha — executable baseline
 
-This is an **initial working baseline**, not the finished Alpha submission. It loads six example formations of twelve dancers, removes one unavailable dancer from each, checks basic constraints, and displays before/after diagrams.
+This is an **initial working baseline**, not the finished Alpha submission. It imports named formations from supported 2D Sway PDFs, offers example routines, removes one unavailable dancer, checks basic geometry, and displays before/after diagrams. See [PDF import instructions](docs/pdf-import.md) to load a routine without writing JSON.
 
 ## Run
 
@@ -19,9 +19,9 @@ python -m pytest -q
 
 ## Important limitations
 
-- Removing a dancer currently leaves a vacant position; no meaningful formation reblocking is implemented yet.
-- `preserve_center` is accepted but not implemented as a distinct optimization objective.
-- No LLM call, artistic formation generation, transition feasibility checking, authentication, or persistent storage.
+- Shape-aware repair is implemented for supported patterns; other layouts use a local geometric heuristic. Whole-routine optimality is not guaranteed.
+- `preserve_center` reduces center movement in the local fallback; shape-specific repairs follow their own rules.
+- AI interprets instructions as a supported preference; it does not generate artistic formations. Left/right direction optimization, transition feasibility checks, authentication, and server-side routine storage are not implemented. Reviews are stored in the browser.
 - Do not claim this prototype validates the full MVP hypothesis or demonstrates test-first development without actual evidence.
 
 ## Next engineering priorities

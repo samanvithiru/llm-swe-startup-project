@@ -8,11 +8,11 @@ class Element {
   append(...items){this.children.push(...items);}
   replaceChildren(...items){this.children=items;if(items.length)this.value=String(items[0].value??'');}
   get options(){return this.children;}
-  setAttribute(){} remove(){} click(){}
+  setAttribute(){} removeAttribute(){} remove(){} click(){}
 }
 function page() {
   const elements=new Map(),storage=new Map();
-  const context={document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element(),createElementNS:()=>new Element(),body:new Element()},Option:class{constructor(text,value){this.textContent=text;this.value=value;}},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)},AbortController,console,setTimeout,Blob,URL};
+  const context={document:{getElementById(id){if(!elements.has(id))elements.set(id,new Element());return elements.get(id);},createElement:()=>new Element(),createElementNS:()=>new Element(),body:new Element()},Option:class{constructor(text,value){this.textContent=text;this.value=value;}},localStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value)},AbortController,console,setTimeout,Blob,URL,FormData};
   vm.createContext(context);
   const script=readFileSync('app/index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
   context.document.getElementById('preference').value='minimize_changes';
@@ -26,7 +26,7 @@ function response(p,{valid=true,roster='normal'}={}) {
   p.context.fetch=async()=>({ok:true,json:async()=>({routine,valid,errors:valid?[]:['Spacing violation'],changed_assignments:1,total_displacement:1})});
 }
 test('imports populate selectors and malformed coordinates retain the loaded routine',async()=>{
-  const p=page();load(p);assert.equal(p.el('missing').options.length,2);assert.equal(p.el('formation').options[0].textContent,'1. Opening');
+  const p=page();load(p);assert.equal(p.el('missing').options.length,2);assert.equal(p.el('formation').options[0].textContent,'Opening');
   await p.el('upload').onchange({target:{files:[{name:'bad.json',text:async()=>JSON.stringify({...source,stage:{width:-1,height:6}})}],value:'bad.json'}});
   assert.match(p.el('status').textContent,/positive finite/);assert.equal(p.el('missing').options.length,2);
 });
@@ -104,8 +104,11 @@ test('roster mismatches are rejected on import and named choreography examples l
 
 // Real FastAPI integration: only the external Gemini preference call is stubbed.
 const {spawnSync} = require('node:child_process');
-function apiFetch(url,options) {
-  const run=spawnSync('.venv/bin/python',['-B','tests/frontend/api_bridge.py'],{input:JSON.stringify({url,body:JSON.parse(options.body)}),encoding:'utf8'});
+async function apiFetch(url,options) {
+  const body=options.body instanceof FormData
+    ? {pdf_base64:Buffer.from(await options.body.get('file').arrayBuffer()).toString('base64')}
+    : JSON.parse(options.body);
+  const run=spawnSync('.venv/bin/python',['-B','tests/frontend/api_bridge.py'],{input:JSON.stringify({url,body}),encoding:'utf8'});
   assert.equal(run.status,0,run.stderr);
   const output=JSON.parse(run.stdout);return Promise.resolve({ok:output.status<400,json:async()=>output.body});
 }
@@ -138,4 +141,67 @@ test('a single-dancer routine accepts the empty repaired formation',async()=>{
   const p=page();p.context.single=structuredClone(source);p.context.single.formations[0].dancers.pop();p.run("loadRoutine(single,'Solo')");
   p.context.fetch=async()=>({ok:true,json:async()=>({routine:{stage:{width:10,height:6},formations:[{name:'Opening',dancers:[]}]},valid:true,errors:[]})});
   await p.el('run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);assert.equal(p.run('result.changed_assignments'),0);
+});
+
+
+function pdfDraftResponse() {
+  const draft=structuredClone(source);
+  draft.stage.units='ft';
+  draft.formations.push({name:'Exit',dancers:[{id:'A',x:-2,y:2},{id:'B',x:12,y:2}]});
+  return {routine:draft,pages:[{page:1,name:'Opening',importable:true,issues:[]},{page:2,name:'Exit',importable:false,issues:['Dancers outside stage']}],warnings:['Check extracted positions.']};
+}
+function pdfUpload(p,name='formations.pdf') {
+  return p.el('pdf-upload').onchange({target:{files:[new File(['%PDF-test'],name,{type:'application/pdf'})],value:name}});
+}
+test('PDF preview preserves the current routine until confirmation and excludes offstage pages',async()=>{
+  const p=page();load(p);const data=pdfDraftResponse();
+  p.context.fetch=async(url,options)=>{assert.equal(url,'/api/import/sway-pdf');assert.ok(options.body instanceof FormData);assert.equal(options.headers,undefined);return {ok:true,json:async()=>data};};
+  await pdfUpload(p);assert.equal(p.el('pdf-preview').hidden,false);assert.equal(p.run('routine.formations.length'),1);
+  assert.match(p.el('pdf-selection').textContent,/1 of 2/);assert.match(p.el('pdf-selection').textContent,/Excluded: Exit/);
+  p.el('pdf-formation').value='1';p.el('pdf-formation').onchange();assert.equal(p.el('pdf-include').disabled,true);assert.match(p.el('pdf-page-status').textContent,/outside stage/);assert.match(p.el('pdf-source').href,/#page=2/);
+  p.el('pdf-confirm').onclick();assert.equal(p.el('pdf-preview').hidden,true);assert.equal(p.run('routine.stage.units'),'ft');assert.equal(p.run('routine.formations.length'),1);assert.match(p.el('routine-info').textContent,/formations.pdf/);
+});
+test('PDF selection, cancellation, and import errors leave the prior routine usable',async()=>{
+  const p=page();load(p);p.context.fetch=async()=>({ok:true,json:async()=>pdfDraftResponse()});await pdfUpload(p);
+  p.el('pdf-include').checked=false;p.el('pdf-include').onchange();assert.equal(p.el('pdf-confirm').disabled,true);p.el('pdf-confirm').onclick();assert.equal(p.run('routine.stage.units'),undefined);
+  p.el('pdf-cancel').onclick();assert.equal(p.el('pdf-preview').hidden,true);assert.equal(p.el('run').disabled,false);
+  p.context.fetch=async()=>({ok:false,json:async()=>({detail:'Scanned images are not supported.'})});await pdfUpload(p);assert.match(p.el('pdf-status').textContent,/Scanned images/);assert.equal(p.run('routine.formations.length'),1);assert.equal(p.el('ai-run').disabled,false);
+});
+test('PDF responses cannot overwrite a newer demo selection',async()=>{
+  const p=page();load(p);let resolve;p.context.fetch=()=>new Promise(r=>resolve=r);
+  const pending=pdfUpload(p);p.el('demo').onclick();resolve({ok:true,json:async()=>pdfDraftResponse()});await pending;
+  assert.equal(p.el('pdf-preview').hidden,true);assert.equal(p.run('routine.formations.length'),6);
+});
+test('actual Sway PDF upload, confirmation, and repair work together',async()=>{
+  const p=page();
+  const fixture=spawnSync('.venv/bin/python',['-B','-c',"import runpy,base64; print(base64.b64encode(runpy.run_path('tests/test_pdf_import.py')['sway_pdf'](ghost=True,offstage=True)).decode())"],{encoding:'utf8'});
+  assert.equal(fixture.status,0,fixture.stderr);
+  p.context.fetch=apiFetch;
+  const file=new File([Buffer.from(fixture.stdout.trim(),'base64')],'sway.pdf',{type:'application/pdf'});
+  await p.el('pdf-upload').onchange({target:{files:[file],value:'sway.pdf'}});
+  assert.equal(p.el('pdf-preview').hidden,false,p.el('pdf-status').textContent);assert.match(p.el('pdf-selection').textContent,/1 of 2/);
+  p.el('pdf-confirm').onclick();assert.equal(p.run('routine.formations.length'),1);assert.equal(p.el('missing').options[0].textContent,'Alpha');
+  await p.el('run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);assert.equal(p.run('result.routine.formations[0].dancers[0].id'),'Beta');
+});
+
+
+test('confirmed PDF names and exact nonconsecutive formation labels replace the demo selectors',async()=>{
+  const p=page();
+  const imported={stage:{width:38,height:28,units:'ft'},formations:['F1','F3','F7'].map(name=>({name,dancers:[{id:'Rhea',x:4,y:3},{id:'Samanvi',x:8,y:6}]}))};
+  const draft={routine:imported,pages:imported.formations.map((f,i)=>({page:i+1,name:f.name,importable:true,issues:[]})),warnings:[]};
+  p.context.fetch=async()=>({ok:true,json:async()=>draft});await pdfUpload(p,'kuthu.pdf');
+  assert.equal(p.el('missing').disabled,true);assert.equal(p.el('formation').disabled,true);assert.equal(p.el('run').disabled,true);assert.match(p.el('absence-source').textContent,/Load selected formations/);
+  // Omit F3; F7 must retain its original label rather than becoming F2.
+  p.el('pdf-formation').value='1';p.el('pdf-formation').onchange();p.el('pdf-include').checked=false;p.el('pdf-include').onchange();
+  p.el('pdf-confirm').onclick();
+  assert.deepEqual(p.el('missing').options.map(o=>o.textContent),['Rhea','Samanvi']);
+  assert.deepEqual(p.el('formation').options.map(o=>o.textContent),['F1','F7']);
+  assert.equal(p.el('missing').disabled,false);assert.equal(p.el('formation').disabled,false);assert.equal(p.el('run').disabled,false);assert.match(p.el('absence-source').textContent,/kuthu.pdf/);
+  p.el('missing').value='Samanvi';p.el('formation').value='1';p.el('formation').onchange();
+  assert.equal(p.run('routine.formations[Number($("formation").value)].name'),'F7');
+  p.context.fetch=async(url,options)=>{
+    const body=JSON.parse(options.body);assert.equal(body.missing,'Samanvi');assert.deepEqual(body.routine.formations.map(f=>f.name),['F1','F7']);
+    return {ok:true,json:async()=>({routine:{...body.routine,formations:body.routine.formations.map(f=>({...f,dancers:f.dancers.filter(d=>d.id!==body.missing)}))},valid:true,errors:[]})};
+  };
+  await p.el('run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);
 });
