@@ -31,11 +31,13 @@ Approval and rejection apply to the entire generated proposal. Approval requires
 ## Verification
 
 ```bash
-node --test tests/frontend/workflow.test.cjs
+node --test tests/frontend/*.test.cjs
 python -m pytest -q
 ```
 
 The Node checks execute the actual inline application script using a minimal DOM adapter. They cover imports, request payloads, AI success/failure and cancellation, movement tables, alternative selection, decisions, invalid results, incorrect rosters, late responses, and storage failure.
+
+`tests/frontend/ui.test.cjs` checks page structure (element IDs, form labels, heading order, self-contained file, API routes used, CSS tokens) and UI feedback (progress steps, validity badge, validation details, busy state, error styling, marker labels, and diagram descriptions). Keep existing element IDs when changing the layout: the script and both test files depend on them. All UI code must stay in `app/index.html` because the server does not serve static files.
 
 Two integration checks call the real FastAPI routes and repair algorithm through `tests/frontend/api_bridge.py`. The external Gemini function is stubbed, so tests require no credentials or billable requests. They verify real column alternatives, preference chaining, and HTTP validation errors. Run from the repository root with dependencies installed in `.venv`; the bridge uses `.venv/bin/python`. These checks do not verify browser rendering, actual HTTP transport, or a live Gemini response.
 
