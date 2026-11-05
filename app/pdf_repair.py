@@ -142,15 +142,48 @@ def _quality(points, original, groups, axis, preference, stage):
         average = sum(gaps) / len(gaps)
         uneven += sum((g - average) ** 2 for g in gaps) / max(len(gaps), 1)
         mirror += _symmetry(surviving, axis, center)
-    center_cost = (sum(hypot(p['x'] - stage['width']/2, p['y'] - stage['height']/2)
-                       for p in points) * 0.001 if preference == 'preserve_center' else 0)
-    # Compare geometry first; movement matters only once the shape is clean.
-    score = 5 * uneven + 2 * mirror + 0.08 * moved + 0.025 * total + center_cost
-    return score, {'symmetry_error': round(mirror, 4),
-                   'row_spacing_error': round(uneven, 4),
-                   'moved_dancers': moved,
-                   'total_displacement': round(total, 4),
-                   'spacing_penalty': 0.0}
+
+    # Measure how much dancers near the center actually move.
+    center_movement = 0.0
+    center_x = stage['width'] / 2
+    center_y = stage['height'] / 2
+    scale = max(min(stage['width'], stage['height']) / 3, 0.6)
+
+    for p in points:
+        previous = old[p['id']]
+        distance_to_center = hypot(
+            previous['x'] - center_x,
+            previous['y'] - center_y
+        )
+        centrality = 1 / (1 + (distance_to_center / scale) ** 2)
+        center_movement += _distance(p, previous) * centrality
+
+    # Both preferences reward symmetry and spacing.
+    # Preserve-center adds a penalty for moving central dancers.
+    if preference == 'preserve_center':
+        score = (
+            5 * uneven
+            + 2 * mirror
+            + 0.08 * moved
+            + 0.025 * total
+            + 1.5 * center_movement
+        )
+    else:
+        score = (
+            5 * uneven
+            + 2 * mirror
+            + 0.08 * moved
+            + 0.025 * total
+        )
+
+    return score, {
+        'symmetry_error': round(mirror, 4),
+        'row_spacing_error': round(uneven, 4),
+        'moved_dancers': moved,
+        'total_displacement': round(total, 4),
+        'center_displacement': round(center_movement, 4),
+        'spacing_penalty': 0.0
+    }
 
 
 def repair_pdf_formation(formation, missing, preference, stage):
@@ -163,60 +196,140 @@ def repair_pdf_formation(formation, missing, preference, stage):
     original_all = formation['dancers']
     original = [dict(p) for p in original_all if p['id'] != missing]
     absent = next((p for p in original_all if p['id'] == missing), None)
+
     if absent is None or not original:
         return original, {}
+
     gap = _nearest_gap(original_all)
     tolerance = max(0.3, min(1.25, gap * 0.27))
     options = []
+
     for axis, group_key in [('x', 'y'), ('y', 'x')]:
         groups = _cluster(original_all, group_key, tolerance)
         affected = next((g for g in groups if absent in g), None)
+
         if affected is None or len(affected) < 3:
             continue
-        # A grouping must describe an actual row/column, not a random clump.
+
+        # Only repair a genuine row or column.
         spread = max(p[axis] for p in affected) - min(p[axis] for p in affected)
         transverse = max(p[group_key] for p in affected) - min(p[group_key] for p in affected)
+
         if spread < max(1.0, 2 * transverse):
             continue
+
         for width_factor in (1.0, 0.90, 0.80):
             for center_mode in ('original', 'survivors'):
-                updates = _reflow(affected, missing, axis, center_mode, width_factor)
+                updates = _reflow(
+                    affected,
+                    missing,
+                    axis,
+                    center_mode,
+                    width_factor
+                )
                 if updates:
-                    options.append((axis, groups, updates, f'{group_key}-aligned rebalancing'))
-    # A diagonal is eligible only if the entire formation is nearly collinear.
+                    options.append((
+                        axis,
+                        groups,
+                        updates,
+                        f'{group_key}-aligned rebalancing'
+                    ))
+
+    # Only use diagonal repair for nearly collinear formations.
     if len(original_all) >= 4 and _linearity(original_all) >= 0.97:
         for width_factor in (1.0, 0.90):
-            updates = _reflow(original_all, missing, 'diagonal', 'original', width_factor)
+            updates = _reflow(
+                original_all,
+                missing,
+                'diagonal',
+                'original',
+                width_factor
+            )
             if updates:
-                options.append(('x', [original_all], updates, 'diagonal rebalancing'))
+                options.append((
+                    'x',
+                    [original_all],
+                    updates,
+                    'diagonal rebalancing'
+                ))
+
     if not options:
-        return original, {'method': 'preserve irregular formation',
-                          'candidates_evaluated': 0,
-                          'repaired': {'moved_dancers': 0, 'total_displacement': 0.0}}
-    # Use the structure that actually produced candidates, and do not reward
-    # the remove-only baseline just because it requires zero movement.
+        return original, {
+            'method': 'preserve irregular formation',
+            'candidates_evaluated': 0,
+            'repaired': {
+                'moved_dancers': 0,
+                'total_displacement': 0.0
+            }
+        }
+
+    # Reject invalid layouts and compare improvements.
     ranked = []
+
     for axis, groups, updates, label in options:
         candidate = _apply(original, updates)
+
         if not _valid(candidate, stage):
             continue
-        score, metrics = _quality(candidate, original, groups, axis, preference, stage)
-        baseline, baseline_metrics = _quality(original, original, groups, axis, preference, stage)
+
+        score, metrics = _quality(
+            candidate,
+            original,
+            groups,
+            axis,
+            preference,
+            stage
+        )
+        baseline, baseline_metrics = _quality(
+            original,
+            original,
+            groups,
+            axis,
+            preference,
+            stage
+        )
+
         improvement = baseline - score
-        # A geometric improvement must outweigh any increase in movement.
+
+        # Only accept an actual improvement.
         if improvement <= 0.001:
             continue
-        ranked.append((score - baseline, metrics['moved_dancers'],
-                       metrics['total_displacement'], label, candidate,
-                       baseline, score, baseline_metrics, metrics))
+
+        ranked.append((
+            score - baseline,
+            metrics['moved_dancers'],
+            metrics['total_displacement'],
+            label,
+            candidate,
+            baseline,
+            score,
+            baseline_metrics,
+            metrics
+        ))
+
     if not ranked:
-        return original, {'method': 'remove-only baseline (no valid improvement)',
-                          'candidates_evaluated': len(options),
-                          'repaired': {'moved_dancers': 0, 'total_displacement': 0.0}}
+        return original, {
+            'method': 'remove-only baseline (no valid improvement)',
+            'candidates_evaluated': len(options),
+            'repaired': {
+                'moved_dancers': 0,
+                'total_displacement': 0.0
+            }
+        }
+
     ranked.sort(key=lambda r: (r[0], r[1], r[2]))
+
     _, _, _, label, best, baseline, score, before, after = ranked[0]
-    return best, {'method': label, 'candidates_evaluated': len(options),
-                  'baseline_score': round(baseline, 4),
-                  'repaired_score': round(score, 4),
-                  'improvement_percent': round(100 * (baseline-score)/max(baseline, 1e-9), 2),
-                  'baseline': before, 'repaired': after}
+
+    return best, {
+        'method': label,
+        'candidates_evaluated': len(options),
+        'baseline_score': round(baseline, 4),
+        'repaired_score': round(score, 4),
+        'improvement_percent': round(
+            100 * (baseline - score) / max(baseline, 1e-9),
+            2
+        ),
+        'baseline': before,
+        'repaired': after
+    }
