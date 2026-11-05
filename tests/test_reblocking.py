@@ -40,19 +40,36 @@ def test_reblocking_moves_at_least_one_remaining_dancer():
     assert result["changed_assignments"] == moved
 
 
+
 def test_reblocking_reports_actual_total_displacement():
-    original = sample_routine()
-    result = repair(original, "B")
-    before = {
-        (f["name"], p["id"]): (p["x"], p["y"])
-        for f in original["formations"] for p in f["dancers"]
-    }
-    actual = sum(
-        dist((p["x"], p["y"]), before[(f["name"], p["id"])])
-        for f in result["routine"]["formations"] for p in f["dancers"]
-    )
-    assert "total_displacement" in result
-    assert abs(result["total_displacement"] - actual) < 0.001
+    for missing in ["A", "B", "C", "D"]:
+        original = sample_routine()
+        result = repair(original, missing)
+
+        before = {
+            (f["name"], p["id"]): (p["x"], p["y"])
+            for f in original["formations"]
+            for p in f["dancers"]
+        }
+
+        actual = sum(
+            dist(
+                (p["x"], p["y"]),
+                before[(f["name"], p["id"])]
+            )
+            for f in result["routine"]["formations"]
+            for p in f["dancers"]
+        )
+
+        assert "total_displacement" in result
+        assert abs(result["total_displacement"] - actual) < 0.001
+
+        # The removed dancer should never remain
+        for formation in result["routine"]["formations"]:
+            assert missing not in [
+                p["id"] for p in formation["dancers"]
+            ]
+
 
 
 def test_reblocking_preserves_original_and_constraints():

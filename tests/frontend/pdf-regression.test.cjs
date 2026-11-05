@@ -65,15 +65,68 @@ test('layout switching clears the current approval and records the selected alte
   const records=JSON.parse([...p.storage.values()][0]);assert.equal(records.length,2);
   assert.deepEqual(records[1].proposal.routine,alternative);
 });
-test('review export keeps source coordinates, selected proposal, notes, and decision',async()=>{
-  const p=page(),data=draft();await confirm(p,data);
-  p.context.fetch=async()=>({ok:true,json:async()=>repairReply(data,'Rhea')});await p.el('run').onclick();
-  p.el('review-note').value='Ready';p.el('approve').onclick();p.el('export-review').onclick();
-  const exported=JSON.parse(await [...p.blobs.values()].at(-1).text());
-  assert.deepEqual(exported.original,data.routine);assert.equal(exported.review.decision,'approved');
-  assert.equal(exported.review.notes,'Ready');assert.equal(exported.missing,'Rhea');
-  assert.ok(exported.proposal.routine.formations.every(f=>f.dancers.every(d=>d.id!=='Rhea')));
+
+test('review export keeps source coordinates, selected proposal, notes, and decision', async () => {
+  const p = page();
+  const data = draft();
+
+  await confirm(p, data);
+
+  p.context.fetch = async () => ({
+    ok: true,
+    json: async () => repairReply(data, 'Rhea')
+  });
+
+  await p.el('run').onclick();
+
+  // Case 1: Approve the repair
+  p.el('review-note').value = 'Ready';
+  p.el('approve').onclick();
+  p.el('export-review').onclick();
+
+  let exported = JSON.parse(
+    await [...p.blobs.values()].at(-1).text()
+  );
+
+  assert.deepEqual(exported.original, data.routine);
+  assert.equal(exported.review.decision, 'approved');
+  assert.equal(exported.review.notes, 'Ready');
+  assert.equal(exported.missing, 'Rhea');
+
+  assert.ok(
+    exported.proposal.routine.formations.every(
+      f => f.dancers.every(d => d.id !== 'Rhea')
+    )
+  );
+
+  // Case 2: Reject the same repair after further review
+  p.el('review-note').value = 'Needs more adjustments';
+  p.el('reject').onclick();
+  p.el('export-review').onclick();
+
+  exported = JSON.parse(
+    await [...p.blobs.values()].at(-1).text()
+  );
+
+  assert.equal(exported.review.decision, 'rejected');
+  assert.equal(
+    exported.review.notes,
+    'Needs more adjustments'
+  );
+
+  // Original data must remain unchanged
+  assert.deepEqual(exported.original, data.routine);
+
+  // Both review decisions should be recorded
+  const records = JSON.parse(
+    [...p.storage.values()][0]
+  );
+
+  assert.equal(records.length, 2);
+  assert.equal(records[0].decision, 'approved');
+  assert.equal(records[1].decision, 'rejected');
 });
+
 test('a late repair cannot overwrite the next confirmed PDF',async()=>{
   const p=page(),data=draft();await confirm(p,data);let resolve;
   p.context.fetch=()=>new Promise(r=>resolve=r);const pending=p.el('run').onclick();

@@ -59,10 +59,48 @@ def test_offstage_positions_are_preserved_and_reported_not_clipped():
     assert result['routine']['formations'][1]['dancers'][1]['x']==48
 
 
+
 def test_roster_change_requires_review():
-    result=import_sway_pdf(sway_pdf(second_roster=True))
-    assert not result['pages'][1]['importable']
-    assert any('roster' in e for e in result['pages'][1]['issues'])
+    result = import_sway_pdf(
+        sway_pdf(second_roster=True)
+    )
+
+    formations = result["routine"]["formations"]
+    pages = result["pages"]
+
+    assert len(formations) == 2
+
+    # First formation has original dancers
+    first_ids = {
+        p["id"] for p in formations[0]["dancers"]
+    }
+
+    assert first_ids == {"Alpha", "Beta"}
+    assert pages[0]["importable"]
+
+    # Second formation contains the changed dancer
+    second_ids = {
+        p["id"] for p in formations[1]["dancers"]
+    }
+
+    assert second_ids == {"Alpha", "Changed"}
+
+    # The roster inconsistency must be detected
+    assert not pages[1]["importable"]
+
+    assert any(
+        "roster" in error.lower()
+        for error in pages[1]["issues"]
+    )
+
+    # The importer should not silently rename dancers
+    assert first_ids != second_ids
+
+    # Both formations are retained for review
+    assert [f["name"] for f in formations] == [
+        "F1", "F2"
+    ]
+
 
 
 @pytest.mark.parametrize('options',[{'wrong_count':True},{'missing_name':True}])

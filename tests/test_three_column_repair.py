@@ -78,12 +78,34 @@ def test_three_column_detector_rejects_too_close_positions():
     assert not is_three_column_formation(formation)
 
 
+
 def test_three_column_detector_rejects_wrong_number_of_dancers():
-    formation = make_three_columns()
+    # Standard 12-dancer formation
+    original = make_three_columns()
+    assert is_three_column_formation(original)
 
-    formation["dancers"].pop()
+    # One dancer missing
+    too_few = make_three_columns()
+    too_few["dancers"].pop()
 
-    assert not is_three_column_formation(formation)
+    assert not is_three_column_formation(too_few)
+
+    # One extra dancer
+    too_many = make_three_columns()
+    too_many["dancers"].append({
+        "id": "Extra",
+        "x": 8.0,
+        "y": 25.0
+    })
+
+    assert not is_three_column_formation(too_many)
+
+    # Empty formation
+    empty = make_three_columns()
+    empty["dancers"] = []
+
+    assert not is_three_column_formation(empty)
+
 
 
 def test_column_candidates_generate_valid_layouts():

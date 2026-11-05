@@ -13,9 +13,32 @@ def test_removes_absent_dancer_from_every_formation(routine):
     assert result['valid']
     assert all('B' not in [p['id'] for p in f['dancers']] for f in result['routine']['formations'])
 
+
 def test_does_not_mutate_original(routine):
-    repair(routine, 'B')
-    assert len(routine['formations'][0]['dancers']) == 3
+    from copy import deepcopy
+
+    original = deepcopy(routine)
+
+    # Test both supported repair preferences
+    for preference in ["minimize_changes", "preserve_center"]:
+        result = repair(routine, "B", preference)
+
+        # Original routine must remain completely unchanged
+        assert routine == original
+
+        # The repaired copy must exclude the missing dancer
+        for formation in result["routine"]["formations"]:
+            ids = [p["id"] for p in formation["dancers"]]
+
+            assert "B" not in ids
+            assert set(ids) == {"A", "C"}
+
+        # The original should still contain all dancers
+        assert all(
+            len(f["dancers"]) == 3
+            for f in routine["formations"]
+        )
+
 
 def test_unknown_dancer_rejected(routine):
     with pytest.raises(ValueError, match='Unknown dancer'):
