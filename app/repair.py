@@ -380,7 +380,7 @@ def is_three_column_formation(formation: dict) -> bool:
     return True
 
 
-def _column_candidates(formation: dict, missing: str, stage: dict) -> list[dict]:
+def _column_candidates(formation: dict, missing: str, stage: dict, preference: str = "minimize_changes") -> list[dict]:
     """Generate three clean column layouts and assign dancers by minimum cost.
 
     Each candidate preserves three vertical columns and their original centers.
@@ -435,17 +435,35 @@ def _column_candidates(formation: dict, missing: str, stage: dict) -> list[dict]
                       for p in assigned for o in available if p["id"] == o["id"])
         # Symmetric outside columns get an explicit aesthetic advantage.
         balance_penalty = 0 if counts == (4, 3, 4) else 2.0
-        score = movement + 0.15 * changed + balance_penalty
+
+        if preference == "preserve_center":
+            center_x = stage["width"] / 2
+            center_y = stage["height"] / 2
+            center_movement = 0.0
+            for dancer in assigned:
+                original_dancer = next(p for p in available if p["id"] == dancer["id"])
+                distance_from_center = hypot(
+                    original_dancer["x"] - center_x,
+                    original_dancer["y"] - center_y
+                )
+                dancer_movement = hypot(
+                    dancer["x"] - original_dancer["x"],
+                    dancer["y"] - original_dancer["y"]
+                )
+                center_movement += dancer_movement / (1 + distance_from_center)
+            score = movement + 0.15 * changed + balance_penalty + 5.0 * center_movement
+        else:
+            score = movement + 0.15 * changed + balance_penalty
         results.append({"label": label, "dancers": assigned, "score": score})
     return sorted(results, key=lambda item: item["score"])
 
 
-def repair_three_columns(formation: dict, missing: str) -> list[dict]:
+def repair_three_columns(formation: dict, missing: str, preference: str = "minimize_changes") -> list[dict]:
     """Return the highest-ranked valid column arrangement."""
     xs = [p["x"] for p in formation["dancers"]]
     ys = [p["y"] for p in formation["dancers"]]
     stage = {"width": max(xs)+2, "height": max(ys)+2}
-    candidates = _column_candidates(formation, missing, stage)
+    candidates = _column_candidates(formation, missing, stage, preference)
     if candidates:
         return candidates[0]["dancers"]
     return [dict(p) for p in formation["dancers"] if p["id"] != missing]
@@ -580,7 +598,7 @@ def repair(routine: dict, missing: str, preference: str = "minimize_changes") ->
         else:
             # Keep the existing shape-aware algorithms for manual formations.
             if is_three_column_formation(formation):
-                candidate = repair_three_columns(formation, missing)
+                candidate = repair_three_columns(formation, missing, preference)
 
             elif is_v_formation(formation):
                 candidate = repair_v(formation, missing)
@@ -666,7 +684,8 @@ def repair(routine: dict, missing: str, preference: str = "minimize_changes") ->
         for option in _column_candidates(
             formation,
             missing,
-            result["stage"]
+            result["stage"],
+            preference
         ):
             alternate = {
                 "stage": dict(result["stage"]),

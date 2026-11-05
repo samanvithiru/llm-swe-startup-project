@@ -44,7 +44,7 @@ def test_instruction_is_sent(monkeypatch):
         client=fake_client
     )
 
-    assert calls[0]["model"] == "gemini-3.8-flash"
+    assert calls[0]["model"] == "gemini-3.5-flash-lite"
     assert len(calls) == 1
     assert "Minimize dancer movement" in str(calls[0]["contents"])
 

@@ -2,43 +2,63 @@
 """Send formation repair instructions to Google Gemini."""
 
 import os
+import time
 
-from google import genai
 from dotenv import load_dotenv
+from google import genai
+from google.genai.errors import ServerError
 
 from app.openai_adapter import parse_llm_preference
 
-# Load the private API key from the project .env file
+# Load the API key and model settings
 load_dotenv()
 
 
 def get_gemini_preference(instruction: str, client=None) -> dict:
-    # Check that the instruction is not empty
+    # Make sure the captain entered an instruction
     if not instruction or not instruction.strip():
         raise ValueError("Please enter a repair instruction.")
 
-    # Create a Gemini client if one was not provided
+    # Create the Gemini client using our API key
     if client is None:
-        client = genai.Client()
+        api_key = os.getenv("GEMINI_API_KEY")
 
-    # Tell Gemini which repair preferences are supported
+        if not api_key:
+            raise RuntimeError("GEMINI_API_KEY is missing from .env")
+
+        client = genai.Client(api_key=api_key)
+
+    # Explain which repair preferences Gemini can select
     system_prompt = (
         "You interpret dance formation repair instructions. "
         "Choose exactly one preference: "
         "'minimize_changes' or 'preserve_center'. "
-        "Use 'preserve_center' when the user wants to keep "
+        "Choose 'preserve_center' when the user wants to keep "
         "middle or center dancers in place. "
-        "Otherwise use 'minimize_changes' for requests "
-        "to reduce dancer movement or changes. "
-        "Return only a JSON object with a preference field. "
-        "Example: {\"preference\": \"preserve_center\"}"
+        "Otherwise choose 'minimize_changes'. "
+        "Return only JSON, for example: "
+        '{"preference": "preserve_center"}'
     )
 
-    # Send the instruction to Gemini
-    response = client.models.generate_content(
-        model=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"),
-        contents=system_prompt + "\n\nUser instruction: " + instruction
-    )
+    # Retry if Gemini is temporarily unavailable
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+                contents=(
+                    system_prompt
+                    + "\n\nUser instruction: "
+                    + instruction
+                ),
+            )
+            break
 
-    # Parse and validate Gemini's response
+        except ServerError as exc:
+            # Only retry temporary server errors
+            if exc.code not in (500, 502, 503, 504) or attempt == 2:
+                raise
+
+            time.sleep(2 ** attempt)
+
+    # Convert Gemini's answer into a validated preference
     return parse_llm_preference(response.text)

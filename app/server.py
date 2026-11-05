@@ -73,7 +73,9 @@ def ai_preference_api(request: AIPreferenceRequest):
         ) from exc
 
     except Exception as exc:
-        # Handle AI service errors without crashing the website
+        import traceback
+        traceback.print_exc()
+
         raise HTTPException(
             status_code=503,
             detail="AI service is currently unavailable."
