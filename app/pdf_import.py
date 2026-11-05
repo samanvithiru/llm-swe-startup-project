@@ -29,6 +29,44 @@ def _lines(page):
     ]
 
 
+def _stage_grid(lines, boundary, width, height):
+    """Read numeric axes so stage-size-identical PDFs keep distinct grids.
+
+    Sway labels its grid in evenly spaced units (e.g. -4..4 across, 4..0
+    down). Convert those units into physical feet without changing positions.
+    Missing or incomplete axes produce no metadata rather than a guessed grid.
+    """
+    numeric = [(float(text), box) for text, box in lines
+               if re.fullmatch(r"-?\d+(?:\.\d+)?", text)]
+    axes = {
+        "x": [(number, (box.x0 + box.x1) / 2) for number, box in numeric
+              if boundary.y1 <= box.y0 <= boundary.y1 + boundary.height * .1
+              and boundary.x0 - 2 <= (box.x0 + box.x1) / 2 <= boundary.x1 + 2],
+        "y": [(number, (box.y0 + box.y1) / 2) for number, box in numeric
+              if boundary.x1 <= box.x0 <= boundary.x1 + boundary.width * .1
+              and boundary.y0 - 5 <= (box.y0 + box.y1) / 2 <= boundary.y1 + 5],
+    }
+    grid = {}
+    for axis, ticks in axes.items():
+        ticks.sort(key=lambda item: item[1])
+        if not 2 <= len(ticks) <= 100 or len({n for n, _ in ticks}) != len(ticks):
+            return None
+        start, stop = (boundary.x0, boundary.x1) if axis == "x" else (boundary.y0, boundary.y1)
+        if abs(ticks[0][1] - start) > (stop-start)*.04 or abs(ticks[-1][1] - stop) > (stop-start)*.04:
+            return None
+        first, last = ticks[0][0], ticks[-1][0]
+        fractions = [(number-first)/(last-first) for number, _ in ticks]
+        if any(b <= a for a, b in zip(fractions, fractions[1:])):
+            return None
+        if any(abs(fraction - (pixel-ticks[0][1])/(ticks[-1][1]-ticks[0][1])) > .025
+               for fraction, (_, pixel) in zip(fractions, ticks)):
+            return None
+        dimension = width if axis == "x" else height
+        grid[axis] = [round(fraction*dimension, 6) for fraction in fractions]
+        grid[axis + "_labels"] = [number for number, _ in ticks]
+    return grid
+
+
 def _parse_page(page, page_number):
     lines = _lines(page)
     text = "\n".join(line for line, _ in lines)
@@ -102,7 +140,11 @@ def _parse_page(page, page_number):
     formation = {"name": label, "dancers": dancers, "source_page": page_number}
     if hold:
         formation["hold_seconds"] = float(hold[1])
-    return {"width": width, "height": height, "units": "ft"}, formation
+    stage_info = {"width": width, "height": height, "units": "ft"}
+    grid = _stage_grid(lines, stage, width, height)
+    if grid is not None:
+        stage_info["grid"] = grid
+    return stage_info, formation
 
 
 def import_sway_pdf(content: bytes) -> dict:
@@ -122,9 +164,13 @@ def import_sway_pdf(content: bytes) -> dict:
         routine = {"stage": None, "formations": []}
         for i, page in enumerate(document):
             stage, formation = _parse_page(page, i + 1)
-            if routine["stage"] is not None and routine["stage"] != stage:
+            if routine["stage"] is not None and any(routine["stage"][key] != stage[key] for key in ("width", "height", "units")):
                 raise PDFImportError(f"Page {i+1}: stage dimensions differ from the first page.")
-            routine["stage"] = stage
+            if routine["stage"] is None:
+                routine["stage"] = stage
+            elif stage.get("grid") != routine["stage"].get("grid"):
+                # Explicit None prevents using another page's grid when axes are missing.
+                formation["grid"] = stage.get("grid")
             routine["formations"].append(formation)
     first_roster = {p["id"] for p in routine["formations"][0]["dancers"]}
     pages = []

@@ -106,7 +106,9 @@ def test_supplied_kuthu_pdf():
     assert [f['name'] for f in result['routine']['formations']]==['F1','F2','F3','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14']
     assert all(len(f['dancers'])==14 for f in result['routine']['formations'])
     assert len({p['id'] for p in result['routine']['formations'][0]['dancers']})==14
-    assert result['routine']['stage']=={'width':38,'height':28,'units':'ft'}
+    assert {key:result['routine']['stage'][key] for key in ('width','height','units')}=={'width':38,'height':28,'units':'ft'}
+    assert result['routine']['stage']['grid']['x']==pytest.approx([i*38/8 for i in range(9)])
+    assert result['routine']['stage']['grid']['y']==pytest.approx([i*7 for i in range(5)])
     assert sum(page['importable'] for page in result['pages'])==12
     assert not result['pages'][-1]['importable']
     # F2 includes previous-position ghosts; only current white-outlined dots count.
@@ -138,6 +140,7 @@ def test_supplied_bhangra_pdf_with_overlapping_offstage_entrances():
     })
     assert response.status_code == 200, response.text
     result = response.json()
+    assert result['routine']['stage']['grid']['y'] == pytest.approx([i*28/3 for i in range(4)])
     assert [p['name'] for p in result['pages']] == ['F0','F1','F2','F13','F14','F15','F16','F17','F18','F19','F20','F21']
     assert all(p['dancer_count'] == 12 for p in result['pages'])
     expected = {'Tanmayi','Sanjay','Arun','Letti','Shivani','Om','Haasini','Shriya','Rhea','Haarika','Steve','Teddy'}

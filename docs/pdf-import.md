@@ -16,7 +16,7 @@ Open http://127.0.0.1:8000 and select a file with **Sway formations PDF**.
 4. Click **Load selected formations**. The existing routine is preserved until this confirmation.
 5. Select the absent dancer and generate a repair using the existing manual or AI preference controls. PDF extraction itself does not need an AI key.
 
-JSON import remains available under **Advanced: import routine JSON**. The downloaded routine JSON is useful for backups; captains do not need to create it manually.
+The interface is PDF-only; demo routines and JSON input/help have been removed. Downloaded routine JSON remains available as a backup, and proposal/review export remains available.
 
 ## Supported export structure
 
@@ -31,6 +31,16 @@ The importer reads the vector structure observed in the supplied `sway-kuthu-for
 Positions are mapped relative to each page's detected stage boundary, not hardcoded page coordinates or a hardcoded list of dancer names. This matters because Sway can change the diagram scale between pages. Stage dimensions and coordinates are in feet, with x increasing rightward and y increasing downward (backstage at top, audience at bottom). Hold durations and source page numbers are retained in the imported source routine; they do not establish transition feasibility.
 
 Upload limit: 10 MB and 80 pages. Password-protected files, scans, screenshots, 3D exports, missing labels, and other PDF layouts are not supported. Unreliable extraction fails with a page-specific error rather than guessing names or returning a partial routine. There is no automatic OCR or left/right choreography inference.
+
+## Formation grids
+
+The importer reads numeric major-axis labels next to the stage and adds
+`stage.grid.x` and `stage.grid.y` in feet, plus the original axis labels. Preview,
+original, and repaired diagrams use these divisions, with four minor divisions
+per major interval. A page with a different grid retains a formation-level
+override. Missing or incomplete axes are not guessed; a PDF can still load
+without grid metadata. This metadata does not alter dancer coordinates or repair
+constraints. The interface uses black stages, white labels, and purple markers.
 
 ## The supplied Kuthu example
 

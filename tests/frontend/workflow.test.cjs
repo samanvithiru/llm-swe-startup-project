@@ -25,10 +25,11 @@ function response(p,{valid=true,roster='normal'}={}) {
   const routine=structuredClone(source);routine.formations[0].dancers=roster==='wrong'?[{id:'Z',x:4,y:2}]:[{id:'B',x:4,y:2}];
   p.context.fetch=async()=>({ok:true,json:async()=>({routine,valid,errors:valid?[]:['Spacing violation'],changed_assignments:1,total_displacement:1})});
 }
-test('imports populate selectors and malformed coordinates retain the loaded routine',async()=>{
+test('loaded routine populates selectors and malformed coordinates cannot replace it',async()=>{
   const p=page();load(p);assert.equal(p.el('missing').options.length,2);assert.equal(p.el('formation').options[0].textContent,'Opening');
-  await p.el('upload').onchange({target:{files:[{name:'bad.json',text:async()=>JSON.stringify({...source,stage:{width:-1,height:6}})}],value:'bad.json'}});
-  assert.match(p.el('status').textContent,/positive finite/);assert.equal(p.el('missing').options.length,2);
+  p.context.invalid=structuredClone(source);p.context.invalid.stage.width=-1;
+  assert.throws(()=>p.run("loadRoutine(invalid,'Malformed PDF extraction')"),/positive finite/);
+  assert.equal(p.el('missing').options.length,2);assert.equal(p.run('routine.stage.width'),10);
 });
 test('request sends selected absence, displays changes, and persists approval with proposal',async()=>{
   const p=page();load(p);response(p);const fetch=p.context.fetch;p.context.fetch=async(url,options)=>{assert.equal(url,'/api/repair');assert.equal(JSON.parse(options.body).missing,'A');return fetch();};
@@ -96,10 +97,10 @@ test('alternative layouts recalculate metrics, reset approval, and record the se
   p.el('approve').onclick();p.el('layout').value='1';p.el('layout').onchange();assert.equal(p.run('review'),null);assert.equal(p.el('review-note').value,'');assert.match(p.el('summary').textContent,/total displacement: 2/);
   p.el('approve').onclick();const records=JSON.parse([...p.storage.values()][0]);assert.equal(records[1].proposal.routine.formations[0].dancers[0].x,3);assert.match(records[1].proposal.candidate_label,/Balanced/);
 });
-test('roster mismatches are rejected on import and named choreography examples load',()=>{
+test('roster mismatches are rejected without replacing the active routine',()=>{
   const p=page();load(p);
   p.context.bad=structuredClone(source);p.context.bad.formations.push({name:'Mismatch',dancers:[{id:'Z',x:1,y:1}]});assert.throws(()=>p.run("loadRoutine(bad,'Bad')"),/roster must match/);
-  p.el('example').value='Ending Bhangra (12 performers)';p.el('example').onchange();assert.equal(p.el('missing').options.length,12);assert.equal(p.el('formation').options.length,4);assert.match(p.el('routine-info').textContent,/approximate reconstruction/);
+  assert.equal(p.el('missing').options.length,2);assert.equal(p.run('routine.formations.length'),1);
 });
 
 // Real FastAPI integration: only the external Gemini preference call is stubbed.
@@ -112,8 +113,11 @@ async function apiFetch(url,options) {
   assert.equal(run.status,0,run.stderr);
   const output=JSON.parse(run.stdout);return Promise.resolve({ok:output.status<400,json:async()=>output.body});
 }
-test('actual backend alternatives integrate with named examples and selected-layout review',async()=>{
-  const p=page();p.el('example').value='Ending Bhangra (12 performers)';p.el('example').onchange();
+test('actual backend alternatives integrate with a three-column fixture and selected-layout review',async()=>{
+  const p=page();
+  // Test data remains local to tests, independent of removed example controls.
+  p.context.columns={stage:{width:12,height:8},formations:[{name:'F14',dancers:Array.from({length:12},(_,i)=>({id:String.fromCharCode(65+i),x:[4.5,6,7.5][Math.floor(i/4)],y:[1.9,3.2,4.5,5.8][i%4]}))}]};
+  p.run("loadRoutine(columns,'Three-column PDF fixture')");
   p.context.fetch=apiFetch;await p.el('run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);assert.equal(p.el('layout').options.length,4);
   for(let i=0;i<p.el('layout').options.length;i++){
     p.el('layout').value=String(i);p.el('layout').onchange();assert.equal(p.run('result.routine.formations[0].dancers.length'),11);
@@ -167,10 +171,13 @@ test('PDF selection, cancellation, and import errors leave the prior routine usa
   p.el('pdf-cancel').onclick();assert.equal(p.el('pdf-preview').hidden,true);assert.equal(p.el('run').disabled,false);
   p.context.fetch=async()=>({ok:false,json:async()=>({detail:'Scanned images are not supported.'})});await pdfUpload(p);assert.match(p.el('pdf-status').textContent,/Scanned images/);assert.equal(p.run('routine.formations.length'),1);assert.equal(p.el('ai-run').disabled,false);
 });
-test('PDF responses cannot overwrite a newer demo selection',async()=>{
+test('PDF responses cannot overwrite a newer confirmed PDF',async()=>{
   const p=page();load(p);let resolve;p.context.fetch=()=>new Promise(r=>resolve=r);
-  const pending=pdfUpload(p);p.el('demo').onclick();resolve({ok:true,json:async()=>pdfDraftResponse()});await pending;
-  assert.equal(p.el('pdf-preview').hidden,true);assert.equal(p.run('routine.formations.length'),6);
+  const pending=pdfUpload(p,'old.pdf');
+  const next=pdfDraftResponse();next.routine.formations[0].name='F99';next.pages[0].name='F99';
+  p.context.fetch=async()=>({ok:true,json:async()=>next});await pdfUpload(p,'new.pdf');p.el('pdf-confirm').onclick();
+  resolve({ok:true,json:async()=>pdfDraftResponse()});await pending;
+  assert.equal(p.el('pdf-preview').hidden,true);assert.equal(p.run('routine.formations[0].name'),'F99');assert.match(p.el('routine-info').textContent,/new.pdf/);
 });
 test('actual Sway PDF upload, confirmation, and repair work together',async()=>{
   const p=page();

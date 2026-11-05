@@ -55,3 +55,19 @@ def test_pdf_import_returns_major_grid_divisions_in_stage_coordinates(rows):
     })
     assert repaired.status_code==200 and repaired.json()['valid']
     assert repaired.json()['routine']['stage']['grid']==grid
+
+
+def test_page_specific_grid_does_not_change_the_stage_dimensions():
+    doc=pymupdf.open()
+    for rows in [4,3]:
+        with pymupdf.open(stream=gridded_sway_pdf(rows),filetype='pdf') as source:
+            doc.insert_pdf(source)
+    content=doc.tobytes();doc.close()
+    response=TestClient(app).post('/api/import/sway-pdf',files={
+        'file':('mixed-depth.pdf',content,'application/pdf')
+    })
+    assert response.status_code==200,response.text
+    routine=response.json()['routine']
+    assert routine['stage']['grid']['y']==pytest.approx([0,7,14,21,28])
+    assert routine['formations'][1]['grid']['y']==pytest.approx([i*28/3 for i in range(4)])
+    assert routine['formations'][0]['dancers']==routine['formations'][1]['dancers']
