@@ -1,5 +1,5 @@
-// RED phase: acceptance tests for the requested PDF-first UI. These should fail
-// before implementation. No application code is changed by this test file.
+// PDF-first UI acceptance tests, introduced in the red phase before implementation.
+// Their original assertions are retained as regression requirements.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -7,25 +7,25 @@ const {page,descendants,draft,upload,confirm}=require('./helpers/page.cjs');
 const html=fs.readFileSync('app/index.html','utf8');
 const markup=html.slice(0,html.indexOf('<script>')).replace(/<style>[\s\S]*?<\/style>/g,'');
 
-test('RED: example routine picker is removed from the page',()=>{
+test('example routine picker is removed from the page',()=>{
   assert.doesNotMatch(markup,/\bid=["']example["']/,'Remove the example routine selector');
 });
-test('RED: load-demo button is removed from the page',()=>{
+test('load-demo button is removed from the page',()=>{
   assert.doesNotMatch(markup,/\bid=["']demo["']/,'Remove the load-demo button');
 });
-test('RED: JSON upload and format instructions are removed; PDF upload remains',()=>{
+test('JSON upload and format instructions are removed; PDF upload remains',()=>{
   assert.doesNotMatch(markup,/\bid=["']upload["']|JSON format|Advanced:\s*import routine JSON|Routine JSON file/i);
   assert.match(markup,/\bid=["']pdf-upload["']/);
   // The request was to remove JSON input/help, not downloadable review records.
   assert.match(markup,/\bid=["']export-review["']/);
 });
-test('RED: a PDF-first session starts empty with repair disabled',()=>{
+test('a PDF-first session starts empty with repair disabled',()=>{
   const p=page();
   assert.equal(p.el('missing').options.length,0,'Do not silently preload demo dancers');
   assert.equal(p.el('formation').options.length,0,'Do not silently preload demo formations');
   assert.equal(p.el('run').disabled,true);assert.equal(p.el('ai-run').disabled,true);
 });
-test('RED: the palette is controlled through shared theme variables',()=>{
+test('the palette is controlled through shared theme variables',()=>{
   const css=html.match(/<style>([\s\S]*?)<\/style>/)[1];
   // Contract for the redesign; exact color values remain a design decision.
   for(const token of ['--page-bg','--surface','--text','--accent','--grid-line']){
@@ -53,14 +53,14 @@ function assertGrid(svg,stage){
   }
   return gridLines.map(n=>['x1','y1','x2','y2'].map(k=>Number(n.getAttribute(k))));
 }
-for(const rows of [4,3])test(`RED: preview grid follows the PDF's ${rows} depth divisions, with offstage dancers preserved`,async()=>{
+for(const rows of [4,3])test(`preview grid follows the PDF's ${rows} depth divisions, with offstage dancers preserved`,async()=>{
   const p=page(),data=draft({rows});
   // An exit marker must not stretch or renormalize the grid to the preview bounds.
   data.routine.formations[0].dancers[0].x=-2;data.pages[0].importable=false;data.pages[0].issues=['Dancer outside stage'];
   await upload(p,data);assertGrid(p.el('pdf-stage'),data.routine.stage);
   assert.equal(p.el('pdf-include').disabled,true);
 });
-test('RED: original and repaired grids align without changing request coordinates',async()=>{
+test('original and repaired grids align without changing request coordinates',async()=>{
   const p=page(),data=draft();await confirm(p,data);
   let payload;
   p.context.fetch=async(url,options)=>{
@@ -70,4 +70,28 @@ test('RED: original and repaired grids align without changing request coordinate
   await p.el('run').onclick();
   assert.deepEqual(payload.routine,data.routine,'Grid rendering must not alter dancer coordinates or source stage metadata');
   assert.deepEqual(assertGrid(p.el('original'),data.routine.stage),assertGrid(p.el('repaired'),data.routine.stage));
+});
+
+
+test('black background, white text, and purple marker styling share the theme',()=>{
+  const css=html.match(/<style>([\s\S]*?)<\/style>/)[1];
+  const color=name=>{const match=css.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-f]{6})`,'i'));assert.ok(match,`Missing color ${name}`);return match[1].toLowerCase();};
+  assert.equal(color('--page-bg'),'#000000');assert.equal(color('--text'),'#ffffff');
+  const purple=color('--marker');const [r,g,b]=[1,3,5].map(i=>parseInt(purple.slice(i,i+2),16));
+  assert.ok(r>g && b>r,'Formation markers should be purple');
+  assert.match(css,/\.dancer-marker\s*\{[^}]*fill:\s*var\(--marker\)/);
+  assert.match(css,/\.dancer-label[^}]*fill:\s*var\(--text\)/);
+});
+
+test('a formation-specific grid is retained in repaired view when the server omits display metadata',async()=>{
+  const p=page(),data=draft();
+  data.routine.formations[1].grid={x:data.routine.stage.grid.x,y:[0,28/3,56/3,28]};
+  await confirm(p,data);p.el('formation').value='1';p.el('formation').onchange();
+  p.context.fetch=async(_,options)=>{
+    const body=JSON.parse(options.body);
+    return {ok:true,json:async()=>({routine:{stage:data.routine.stage,formations:data.routine.formations.map(f=>({name:f.name,dancers:f.dancers.filter(d=>d.id!==body.missing)}))},valid:true,errors:[]})};
+  };
+  await p.el('run').onclick();
+  const stage={...data.routine.stage,grid:data.routine.formations[1].grid};
+  assert.deepEqual(assertGrid(p.el('original'),stage),assertGrid(p.el('repaired'),stage));
 });

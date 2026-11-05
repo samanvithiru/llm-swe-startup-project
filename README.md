@@ -1,6 +1,6 @@
 # FormationRescue Alpha — executable baseline
 
-This is an **initial working baseline**, not the finished Alpha submission. It imports named formations from supported 2D Sway PDFs, offers example routines, removes one unavailable dancer, checks basic geometry, and displays before/after diagrams. See [PDF import instructions](docs/pdf-import.md) to load a routine without writing JSON.
+This is an **initial working baseline**, not the finished Alpha submission. It imports named formations from supported 2D Sway PDFs, removes one unavailable dancer, checks basic geometry, and displays before/after diagrams. See [PDF import instructions](docs/pdf-import.md) to load a routine without writing JSON.
 
 ## Run
 
@@ -15,6 +15,7 @@ Open http://127.0.0.1:8000
 
 ```bash
 python -m pytest -q
+node --test tests/frontend/*.test.cjs
 ```
 
 ## Important limitations

@@ -1,9 +1,13 @@
 # PDF-first UI redesign: tests before implementation
 
-This is the **red phase**. Only tests and this guide were added. No application,
-backend, frontend, dependency, or existing-test implementation was changed.
-Do not implement the features or skip/mark the new acceptance tests as expected
-failures before committing this snapshot. Their failures are the TDD evidence.
+The tests-first snapshot was committed as `1b9ac64`. At that commit, the 8 UI
+acceptance checks and 2 grid-contract checks failed while the regression safety
+net passed. The subsequent implementation makes those same acceptance
+assertions pass; tests are not skipped or marked as expected failures.
+
+The green phase preserves the original acceptance assertions and additionally checks page-specific grid metadata. It also checks the requested black background, white text, and
+purple markers. Legacy tests now use test-local fixtures instead of deleted
+demo/JSON controls. The production page starts with an empty PDF-only session.
 
 ## New files
 
@@ -53,7 +57,7 @@ node --test tests/frontend/ui-redesign.test.cjs
 python -m pytest tests/test_pdf_grid_contract.py -q
 ```
 
-Expected before implementation: **8 UI failures and 2 grid-contract failures**.
+Expected when running the tests-first commit, before implementation: **8 UI failures and 2 grid-contract failures**.
 Check their assertion messages: they should describe missing features, not
 syntax errors, missing dependencies, or HTTP connection failures.
 
@@ -88,7 +92,7 @@ quality, CSS contrast, actual browser layout, PDF-viewer behavior, or live Gemin
 availability. Manually inspect the final palette and grid against the source PDF.
 Tests reduce regression risk; they cannot guarantee that no behavior can break.
 
-## Commit the tests-first snapshot
+## Historical tests-first commit commands
 
 ```bash
 git add tests/frontend/helpers/page.cjs tests/frontend/pdf-regression.test.cjs tests/frontend/ui-redesign.test.cjs tests/test_pdf_grid_contract.py tests/UI_TDD.md

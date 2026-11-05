@@ -5,8 +5,62 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FormationRescue · Routine review</title>
   <style>
-    :root{font-family:system-ui,sans-serif;color:#19213b;background:#f5f6fb}
-    *{box-sizing:border-box}body{margin:0}header{background:#292d64;color:white;padding:24px max(24px,6%)}header p{margin-bottom:0;color:#dddff8}h1{margin:0;font-size:28px}h2{margin-top:0;font-size:20px}main{max-width:1200px;margin:24px auto;padding:0 20px}.panel{background:white;border:1px solid #e1e3ef;border-radius:14px;padding:22px;margin-bottom:20px}.controls{display:flex;align-items:end;gap:16px;flex-wrap:wrap}label{display:grid;gap:7px;font-size:14px;font-weight:600}select,button,input,textarea{font:inherit}select,button,input[type=file]{padding:10px;border:1px solid #c5c9db;border-radius:8px;max-width:100%}button{background:#494bb4;color:white;cursor:pointer;border-color:#494bb4}button.secondary{background:white;color:#292d64}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #b28b00;outline-offset:3px}.note{color:#555e74;font-size:14px;line-height:1.6}.stages{display:grid;grid-template-columns:1fr 1fr;gap:20px}.stage{display:block;width:100%;background:#edf0fa;border:1px solid #ccd0df;border-radius:8px}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}.legend span::before{content:'●';margin-right:6px;color:#5458b9}.legend .absent::before{color:#bc3434}.legend .moved::before{color:#9b5700}textarea{display:block;width:100%;min-height:80px;border:1px solid #c5c9db;border-radius:8px;padding:10px;margin:8px 0 16px}#status{white-space:pre-wrap}#status.error{color:#a12828}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e1e3ef;padding:10px} .table-wrap{overflow:auto}details{margin-top:16px}pre{overflow:auto;font-size:13px}#summary{font-weight:600}#review-status{white-space:pre-wrap}@media(max-width:720px){.stages{grid-template-columns:1fr}.controls>*{width:100%}}
+    :root {
+      color-scheme: dark;
+      --page-bg: #000000; --surface: #111014; --text: #ffffff;
+      --accent: #9333ea; --marker: #9333ea; --moved: #d8b4fe;
+      --muted: #c5bfce; --border: #39313f; --grid-line: #493456;
+      --absent: #fb7185; --focus: #e9d5ff;
+      font-family: system-ui, sans-serif; color: var(--text); background: var(--page-bg);
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; background: var(--page-bg); }
+    header { border-bottom: 1px solid var(--border); padding: 28px max(24px,6%); background: var(--surface); }
+    header h1 { margin: 0; font-size: 28px; letter-spacing: -.5px; }
+    header p { margin-bottom: 0; color: var(--muted); }
+    main { max-width: 1200px; margin: 26px auto; padding: 0 20px; }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 20px; }
+    h2 { margin-top: 0; font-size: 20px; } h3 { font-size: 17px; }
+    .controls { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; }
+    label { display: grid; gap: 7px; font-size: 14px; font-weight: 600; }
+    select, button, input, textarea { font: inherit; }
+    select, input[type=file], textarea { background: var(--page-bg); color: var(--text); border: 1px solid var(--border); }
+    select, button, input[type=file] { padding: 10px; border-radius: 8px; max-width: 100%; }
+    input[type=checkbox] { accent-color: var(--accent); }
+    input::file-selector-button { background: var(--accent); color: var(--text); border: 0; border-radius: 5px; padding: 6px 10px; margin-right: 10px; cursor: pointer; }
+    button { background: var(--accent); color: var(--text); border: 1px solid var(--accent); cursor: pointer; font-weight: 600; }
+    button:hover:not(:disabled) { filter: brightness(1.15); }
+    button.secondary { background: transparent; border-color: #80618f; }
+    button:disabled, select:disabled { opacity: .5; cursor: not-allowed; }
+    :is(button,select,textarea,input,a,summary):focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+    a { color: #e9d5ff; text-underline-offset: 3px; }
+    .note { color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .stages { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .stage { display: block; width: 100%; background: var(--page-bg); border: 1px solid var(--border); border-radius: 8px; }
+    .formation-grid line { stroke: var(--grid-line); vector-effect: non-scaling-stroke; }
+    .formation-grid .minor { stroke-width: .5; opacity: .5; }
+    .formation-grid .major { stroke-width: 1; }
+    .stage-boundary { stroke: #a78bba; }
+    .stage-label, .dancer-label, .grid-label { fill: var(--text); }
+    .dancer-marker { fill: var(--marker); stroke: var(--text); stroke-width: 1; }
+    .dancer-marker.moved { stroke: var(--moved); stroke-width: 3; }
+    .dancer-marker.absent { fill: var(--absent); }
+    .movement { stroke: var(--moved); }
+    .legend { display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px; margin-bottom: 18px; }
+    .legend span::before { content: '●'; margin-right: 6px; color: var(--marker); }
+    .legend .absent::before { color: var(--absent); }
+    .legend .moved::before { color: var(--moved); }
+    textarea { display: block; width: 100%; min-height: 80px; border-radius: 8px; padding: 10px; margin: 8px 0 16px; }
+    textarea::placeholder { color: #a69aae; }
+    #status, #review-status { white-space: pre-wrap; }
+    #status.error { color: #fda4af; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    caption { text-align: left; color: var(--muted); padding: 12px 0; }
+    th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 10px; }
+    .table-wrap { overflow: auto; } details { margin-top: 16px; }
+    #summary { font-weight: 600; }
+    @media(max-width:720px) { .stages { grid-template-columns: 1fr; } .controls>* { width: 100%; } }
   </style>
 </head>
 <body>
@@ -14,8 +68,8 @@
 <main>
   <section class="panel" aria-labelledby="load-title">
     <h2 id="load-title">1. Load a routine</h2>
-    <div class="controls"><label>Sway formations PDF<input id="pdf-upload" type="file" accept=".pdf,application/pdf"></label><label>Example routine<select id="example"><option value="">Choose an example…</option></select></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
-    <p class="note">Upload a 2D Sway PDF with named dancer markers. Review the extracted formations before loading. No JSON editing or AI key is needed. Scans and screenshots are not supported yet.</p>
+    <div class="controls"><label>Sway formations PDF<input id="pdf-upload" type="file" accept=".pdf,application/pdf"></label><button id="export-source" class="secondary">Download routine backup</button></div>
+    <p class="note">Upload a 2D Sway PDF with named dancer markers. Review the extracted formations before loading. No manual coordinate entry or AI key is needed. Scans and screenshots are not supported yet.</p>
     <p id="pdf-status" class="note" role="status" aria-live="polite"></p>
     <div id="pdf-preview" hidden>
       <h3>Review PDF import</h3>
@@ -28,15 +82,6 @@
       <div class="controls"><button id="pdf-confirm">Load selected formations</button><button id="pdf-cancel" class="secondary">Cancel import</button></div>
     </div>
     <p id="routine-info" class="note"></p>
-    <details><summary>Advanced: import routine JSON</summary><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label></details>
-    <details><summary>JSON format</summary><p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p><pre>{
-  "stage": {"width": 10, "height": 6},
-  "formations": [{
-    "name": "Opening",
-    "dancers": [{"id": "A", "x": 2, "y": 3},
-                {"id": "B", "x": 5, "y": 3}]
-  }]
-}</pre></details>
   </section>
   <section class="panel" aria-labelledby="repair-title">
     <h2 id="repair-title">2. Mark an absence</h2>
@@ -78,39 +123,6 @@ let routine, result = null, review = null, generation = 0, controller = null, lo
 let requestContext = null;
 let candidates = [];
 let pdfDraft = null, pdfURL = null, pdfName = "", pdfSelected = new Set();
-const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
-const patterns = [
-  ['V', i => [1+(i%6)*1.4, .8+Math.abs(2.5-i%6)*.65+Math.floor(i/6)*2.2]],
-  ['Two rows', i => [1+(i%6)*1.4, 2+Math.floor(i/6)*2]],
-  ['Diagonal', i => [1+(i%6)*1.4, 1+Math.floor(i/6)*2+(i%6)*.25]],
-  ['Columns', i => [2+(i%4)*2, 1+Math.floor(i/4)*1.5]],
-  ['Wide', i => [.8+(i%6)*1.55, 1.2+Math.floor(i/6)*3]],
-  ['Chevron', i => [1+(i%6)*1.4, 1+Math.abs(2.5-i%6)*.55+Math.floor(i/6)*2]]
-];
-// Approximate choreography reconstructions supplied by the backend branch.
-const choreographyExamples={
-  "Ending Bhangra (12 performers)":{
-    names:['Shriya','Shivani','Sanjay','Teddy','Om','Haarika','Haasini','Letti','Tanmayi','Arun','Steve','Rhea'],
-    formations:[
-      {name:'F14 · Diamond / center column',points:{Shriya:[4.5,5.8],Shivani:[4.5,4.5],Sanjay:[4.5,3.2],Haarika:[4.5,1.9],Haasini:[7.5,5.8],Tanmayi:[7.5,4.5],Letti:[7.5,3.2],Rhea:[7.5,1.9],Arun:[6,5.2],Teddy:[6,4.0],Steve:[6,2.8],Om:[6,1.5]}},
-      {name:'F19 · Layered V',points:{Shriya:[2.2,5.1],Shivani:[3,4.5],Sanjay:[3.8,3.8],Haarika:[5,2.5],Om:[6,1.7],Rhea:[7,2.5],Letti:[8.2,3.8],Steve:[9,4.5],Tanmayi:[9.8,5.1],Arun:[5,4.5],Teddy:[6,3.6],Haasini:[7,4.5]}},
-      {name:'F20 · Two staggered rows',points:{Shriya:[2.0,5.4],Sanjay:[3.6,5.4],Arun:[5.2,5.4],Teddy:[6.8,5.4],Haasini:[8.4,5.4],Steve:[10,5.4],Shivani:[2.8,3.3],Haarika:[4.4,3.3],Om:[6,3.3],Rhea:[7.6,3.3],Letti:[9.2,3.3],Tanmayi:[10.8,3.3]}},
-      {name:'F21 · Layered ending',points:{Teddy:[6,5.8],Sanjay:[3,4.5],Arun:[4.8,4.5],Rhea:[7.2,4.5],Tanmayi:[9,4.5],Shriya:[2.2,3.1],Haarika:[4.1,3.1],Om:[6,3.1],Haasini:[7.9,3.1],Steve:[9.8,3.1],Shivani:[3,1.6],Letti:[9,1.6]}}
-    ]
-  },
-  "Kuthu (14 performers)":{
-    names:['Jai','Jaynelle','Steve','Druthi','Pranav','Rhea','Nitya','Om','Rithika','Samanvi','Sanjay','Arun','Anvita','Megha'],
-    formations:[
-      {name:'F1 · Two staggered groups',points:{Jai:[3.3,6.1],Steve:[1.8,5.6],Druthi:[4.1,5.6],Pranav:[7,5.6],Jaynelle:[8.6,6.1],Rhea:[10.1,5.6],Nitya:[1.1,3.5],Sanjay:[2.7,2.9],Arun:[4.2,2.9],Om:[5.3,3.5],Rithika:[6.6,3.5],Anvita:[7.8,2.9],Megha:[9.2,2.9],Samanvi:[10.6,3.5]}},
-      {name:'F7 · Layered chevron',points:{Rithika:[6,6.6],Jai:[4.2,6.1],Jaynelle:[7.8,6.1],Nitya:[2.7,5.1],Druthi:[6,5.1],Samanvi:[9.3,5.1],Sanjay:[4.2,4],Pranav:[6,4],Megha:[7.8,4],Steve:[2.7,2.7],Rhea:[9.3,2.7],Om:[4.2,1.6],Arun:[6,2.6],Anvita:[7.8,1.6]}},
-      {name:'F9 · Layered rows',points:{Nitya:[1.5,5.6],Jai:[3.5,5.6],Rithika:[6,5.6],Jaynelle:[8.5,5.6],Samanvi:[10.5,5.6],Sanjay:[2.8,4.1],Druthi:[4.8,4.1],Rhea:[7.2,4.1],Megha:[9.2,4.1],Steve:[4.5,2.6],Pranav:[6,2.6],Anvita:[7.5,2.6],Om:[5.2,1.1],Arun:[6.8,1.1]}},
-      {name:'F12 · Three rows',points:{Nitya:[2,5.5],Jai:[4,5.5],Rithika:[6,5.5],Samanvi:[8,5.5],Jaynelle:[10,5.5],Steve:[2.8,3.8],Sanjay:[4.5,3.8],Druthi:[6,3.8],Megha:[7.5,3.8],Anvita:[9.2,3.8],Om:[3.6,2.1],Pranav:[5.2,2.1],Rhea:[6.8,2.1],Arun:[8.4,2.1]}}
-    ]
-  }
-};
-function demoRoutine() {
-  return {stage:{width:10,height:6}, formations:patterns.map(([name,fn]) => ({name,dancers:ids.map((id,i) => {const [x,y]=fn(i);return {id,x,y};})}))};
-}
 function validateRoutine(value, allowEmptyFormations=false) {
   if (!value || !value.stage || !Number.isFinite(value.stage.width) || !Number.isFinite(value.stage.height) || value.stage.width<=0 || value.stage.height<=0) throw Error('Stage width and height must be positive finite numbers.');
   if (!Array.isArray(value.formations) || !value.formations.length) throw Error('Provide at least one formation.');
@@ -141,7 +153,7 @@ function resetProposal(message='Selection changed. Generate a new repair.') {
   status(message); refresh();
 }
 function loadRoutine(value,label) {
-  validateRoutine(value); clearPDFPreview(); routine=value; $('example').value='';
+  validateRoutine(value); clearPDFPreview(); routine=value;
   $('missing').replaceChildren(...[...new Set(value.formations.flatMap(f=>f.dancers.map(p=>p.id)))].map(id=>new Option(id,id)));
   $('formation').replaceChildren(...value.formations.map((f,i)=>new Option(f.name,i)));
   $('routine-info').textContent=`${label} · ${value.formations.length} formations · ${$('missing').options.length} dancers · stage ${value.stage.width} × ${value.stage.height}${value.stage.units?' '+value.stage.units:''}`;
@@ -155,6 +167,26 @@ function svgNode(tag,attrs,text) {
   return node;
 }
 function distance(a,b) {return Math.hypot(a.x-b.x,a.y-b.y);}
+function drawGrid(svg,stage,scale,formationGrid) {
+  const grid=formationGrid===undefined?stage.grid:formationGrid;
+  if(!grid || !Array.isArray(grid.x) || !Array.isArray(grid.y))return;
+  const group=svgNode('g',{class:'formation-grid','aria-hidden':'true'});
+  for(const [axis,limit,span] of [['x',stage.width,stage.height],['y',stage.height,stage.width]]){
+    const ticks=grid[axis].filter(value=>Number.isFinite(value)&&value>=0&&value<=limit);
+    for(let i=0;i<ticks.length;i++){
+      const position=ticks[i]*scale;
+      const attrs=axis==='x'?{x1:position,y1:0,x2:position,y2:span*scale}:{x1:0,y1:position,x2:span*scale,y2:position};
+      group.append(svgNode('line',{...attrs,class:'major'}));
+      if(i+1<ticks.length)for(let part=1;part<4;part++){
+        const minor=(ticks[i]+(ticks[i+1]-ticks[i])*part/4)*scale;
+        group.append(svgNode('line',{...(axis==='x'?{x1:minor,y1:0,x2:minor,y2:span*scale}:{x1:0,y1:minor,x2:span*scale,y2:minor}),class:'minor'}));
+      }
+      const label=grid[axis+'_labels']?.[i] ?? Number(ticks[i].toFixed(2));
+      svg.append(svgNode('text',{...(axis==='x'?{x:position,y:stage.height*scale+14,'text-anchor':'middle'}:{x:stage.width*scale+10,y:position+3}),'font-size':9,class:'grid-label'},label));
+    }
+  }
+  svg.append(group);
+}
 function draw(id,formation,original,stage=routine.stage,showOutside=false) {
   const svg=$(id), {width,height}=stage;
   const scale=600/Math.max(width,height), w=width*scale,h=height*scale;
@@ -162,27 +194,35 @@ function draw(id,formation,original,stage=routine.stage,showOutside=false) {
   const left=Math.min(0,...people.map(p=>p.x*scale))-45, top=Math.min(0,...people.map(p=>p.y*scale))-45;
   const right=Math.max(w,...people.map(p=>p.x*scale))+45, bottom=Math.max(h,...people.map(p=>p.y*scale))+45;
   svg.setAttribute('viewBox',`${left} ${top} ${right-left} ${bottom-top}`); svg.replaceChildren();
-  svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,fill:'none',stroke:'#9ba3c0'}));
-  svg.append(svgNode('text',{x:w/2,y:-22,'text-anchor':'middle',fill:'#555e74','font-size':12},'BACKSTAGE'));
-  svg.append(svgNode('text',{x:w/2,y:h+28,'text-anchor':'middle',fill:'#555e74','font-size':12},'AUDIENCE'));
+  drawGrid(svg,stage,scale,(original || formation)?.grid);
+  svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,fill:'none',class:'stage-boundary'}));
+  svg.append(svgNode('text',{x:w/2,y:-22,'text-anchor':'middle',class:'stage-label','font-size':12},'BACKSTAGE'));
+  svg.append(svgNode('text',{x:w/2,y:h+28,'text-anchor':'middle',class:'stage-label','font-size':12},'AUDIENCE'));
   if(!formation) return;
   const before=new Map((original?.dancers||[]).map(p=>[p.id,p]));
   for(const p of formation.dancers) {
     const old=before.get(p.id), moved=old && distance(p,old)>0.00001;
     if(moved) {
-      svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:p.x*scale,y2:p.y*scale,stroke:'#9b5700','stroke-width':2,'stroke-dasharray':'5 4'}));
-      svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,fill:'none',stroke:'#9b5700','stroke-dasharray':'3 3'}));
+      svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:p.x*scale,y2:p.y*scale,class:'movement','stroke-width':2,'stroke-dasharray':'5 4'}));
+      svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,fill:'none',class:'movement','stroke-dasharray':'3 3'}));
     }
     const absent=(id==='original' && p.id===$('missing').value) || (showOutside && (p.x<0 || p.y<0 || p.x>width || p.y>height));
     const g=svgNode('g',{});g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${absent?' — unavailable':moved?' — moved':''}`));
-    g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,fill:absent?'#bc3434':moved?'#9b5700':'#5458b9'}));
-    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id.length>3?p.id.slice(0,3)+'…':p.id));
-    if(p.id.length>3)g.append(svgNode('text',{x:p.x*scale,y:p.y*scale-21,'text-anchor':'middle',fill:'#19213b','font-size':11},p.id));
+    g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,class:`dancer-marker${absent?' absent':moved?' moved':''}`}));
+    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',class:'dancer-label','font-size':12},p.id.length>3?p.id.slice(0,3)+'…':p.id));
+    if(p.id.length>3)g.append(svgNode('text',{x:p.x*scale,y:p.y*scale-21,'text-anchor':'middle',class:'dancer-label','font-size':11},p.id));
     svg.append(g);
   }
 }
 function refresh() {
-  if(!routine) return;
+  const blocked=!routine || pdfDraft!==null || loading;
+  for(const id of ['missing','formation','run','ai-run'])$(id).disabled=blocked;
+  $('export-source').disabled=!routine || loading;
+  $('approve').disabled=!result?.valid || loading; $('reject').disabled=!result || loading; $('export-review').disabled=!result || loading;
+  if(!routine){
+    for(const id of ['original','repaired']){const svg=$(id);svg.setAttribute('viewBox','0 0 600 360');svg.replaceChildren(svgNode('text',{x:300,y:180,'text-anchor':'middle',class:'stage-label','font-size':16},'Upload a Sway PDF to begin'));}
+    return;
+  }
   const i=Number($('formation').value), original=routine.formations[i], proposed=result?.routine.formations[i];
   draw('original',original); draw('repaired',proposed,original);
   $('proposal-note').textContent=result ? (result.valid?'Review moved positions and transitions before approval.':'Invalid proposal. Approval is disabled; review the validation errors.') : 'Generate a repair to see proposed positions.';
@@ -195,10 +235,7 @@ function refresh() {
     [p.id,`(${p.x}, ${p.y})`,after?`(${after.x}, ${after.y})`:'Removed',after?distance(p,after).toFixed(3):'—'].forEach(value=>{const td=document.createElement('td');td.textContent=value;row.append(td);});
     $('changes').append(row);
   }
-  const awaitingPDF=pdfDraft!==null;
-  $('missing').disabled=awaitingPDF || loading; $('formation').disabled=awaitingPDF || loading;
-  $('run').disabled=awaitingPDF || loading; $('ai-run').disabled=awaitingPDF || loading;
-  $('approve').disabled=!result?.valid || loading; $('reject').disabled=!result || loading; $('export-review').disabled=!result || loading;
+
 }
 function readHistory() { const records=JSON.parse(localStorage.getItem(storageKey)||'[]'); if(!Array.isArray(records)) throw Error('Invalid saved review history.'); return records; }
 function showHistory() {
@@ -257,12 +294,12 @@ $('pdf-upload').onchange=async event=>{
     $('pdf-info').textContent=`${file.name} · ${data.pages.length} formations · stage ${data.routine.stage.width} × ${data.routine.stage.height} ft. ${(data.warnings||[]).join(' ')}`;
     $('pdf-preview').hidden=false;$('pdf-status').textContent='Extraction complete. Review the preview, then load selected formations.';
     refreshPDFPreview();$('absence-source').textContent='Finish the PDF preview above and click “Load selected formations” to use its dancer names and F-number labels here.';status('PDF preview ready. Click “Load selected formations” above to update the absence and formation lists.');
-  } catch(error){if(version===generation && error.name!=='AbortError'){$('pdf-status').textContent=`Could not import PDF: ${error.message}`;status('PDF import failed. The previous routine is still loaded.',true);}}
+  } catch(error){if(version===generation && error.name!=='AbortError'){$('pdf-status').textContent=`Could not import PDF: ${error.message}`;status(routine?'PDF import failed. The previous routine is still loaded.':'PDF import failed. Please select another Sway PDF.',true);}}
   finally{event.target.value='';if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
 };
 $('pdf-formation').onchange=refreshPDFPreview;
 $('pdf-include').onchange=()=>{if(!pdfDraft)return;const index=Number($('pdf-formation').value);if(!pdfDraft.pages[index].importable)return;if($('pdf-include').checked)pdfSelected.add(index);else pdfSelected.delete(index);refreshPDFPreview();};
-$('pdf-cancel').onclick=()=>{clearPDFPreview();$('absence-source').textContent=`Active routine: ${$('routine-info').textContent}`;status('PDF import cancelled. Your current routine is unchanged.');};
+$('pdf-cancel').onclick=()=>{clearPDFPreview();$('absence-source').textContent=routine?`Active routine: ${$('routine-info').textContent}`:'Confirm a PDF import to populate dancer names and formations.';status(routine?'PDF import cancelled. Your current routine is unchanged.':'PDF import cancelled. Upload a Sway PDF to begin.');};
 $('pdf-confirm').onclick=()=>{
   if(!pdfDraft || !pdfSelected.size)return;
   const selected=pdfDraft.routine.formations.filter((_,i)=>pdfSelected.has(i));
@@ -270,20 +307,6 @@ $('pdf-confirm').onclick=()=>{
   catch(error){$('pdf-status').textContent=`Cannot load selected formations: ${error.message}`;}
 };
 
-$('upload').onchange=async event=>{
-  const file=event.target.files[0];if(!file)return;
-  // Invalidate pending responses immediately, including while reading the file.
-  resetProposal('Reading routine file…');const version=generation;
-  try {const value=JSON.parse(await file.text());if(version!==generation)return;loadRoutine(value,file.name);}
-  catch(error){if(version===generation)status(`Could not load routine: ${error.message} The previous routine is still loaded.`,true);}
-  finally{event.target.value='';}
-};
-Object.keys(choreographyExamples).forEach(name=>$('example').append(new Option(name,name)));
-$('example').onchange=()=>{
-  const name=$('example').value, data=choreographyExamples[name];if(!data)return;
-  loadRoutine({stage:{width:12,height:8},formations:data.formations.map(f=>({name:f.name,dancers:data.names.map(id=>({id,x:f.points[id][0],y:f.points[id][1]}))}))},`${name} (approximate reconstruction)`);
-};
-$('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
 $('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
 $('preference').onchange=()=>resetProposal('Preference changed. Generate a new repair.');
 $('ai-instruction').oninput=()=>resetProposal('Instruction changed. Generate a new repair.');
@@ -324,6 +347,7 @@ async function requestJSON(url,body,signal) {
   return data;
 }
 async function generateRepair(useAI=false) {
+  if(!routine){status('Upload and confirm a Sway PDF before generating a repair.');return;}
   if(pdfDraft){status('Finish the PDF import above before generating a repair.');return;}
   const instruction=$('ai-instruction').value.trim();
   if(useAI && !instruction){$('ai-status').textContent='Enter an instruction before requesting AI repair.';return;}
@@ -376,9 +400,11 @@ $('run').onclick=()=>generateRepair();
 $('ai-run').onclick=()=>generateRepair(true);
 $('approve').onclick=()=>recordReview('approved');$('reject').onclick=()=>recordReview('rejected');
 $('review-note').oninput=()=>{if(review)$('review-status').textContent='Notes changed since the last recorded decision. Approve or reject again to save the updated notes.';};
-$('export-source').onclick=()=>download('formationrescue-routine.json',routine);
+$('export-source').onclick=()=>{if(routine)download('formationrescue-routine.json',routine);};
 $('export-review').onclick=()=>{if(result)download('formationrescue-review.json',{original:routine,missing:$('missing').value,proposal:result,request:requestContext,review:review?{decision:review.decision,reviewed_at:review.reviewed_at,notes:review.notes}:null,draft_notes:$('review-note').value});};
-loadRoutine(demoRoutine(),'Demo routine');showHistory();
+$('routine-info').textContent='No routine loaded. Upload a Sway PDF to begin.';
+$('absence-source').textContent='Confirm a PDF import to populate dancer names and formations.';
+status('Upload and confirm a Sway PDF to begin.');refresh();showHistory();
 </script>
 </body>
 </html>
