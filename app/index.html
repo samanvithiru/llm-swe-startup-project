@@ -4,66 +4,236 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FormationRescue · Routine review</title>
+  <link rel="icon" href="data:,">
   <style>
-    :root{font-family:system-ui,sans-serif;color:#19213b;background:#f5f6fb}
-    *{box-sizing:border-box}body{margin:0}header{background:#292d64;color:white;padding:24px max(24px,6%)}header p{margin-bottom:0;color:#dddff8}h1{margin:0;font-size:28px}h2{margin-top:0;font-size:20px}main{max-width:1200px;margin:24px auto;padding:0 20px}.panel{background:white;border:1px solid #e1e3ef;border-radius:14px;padding:22px;margin-bottom:20px}.controls{display:flex;align-items:end;gap:16px;flex-wrap:wrap}label{display:grid;gap:7px;font-size:14px;font-weight:600}select,button,input,textarea{font:inherit}select,button,input[type=file]{padding:10px;border:1px solid #c5c9db;border-radius:8px;max-width:100%}button{background:#494bb4;color:white;cursor:pointer;border-color:#494bb4}button.secondary{background:white;color:#292d64}button:disabled{opacity:.5;cursor:not-allowed}button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid #b28b00;outline-offset:3px}.note{color:#555e74;font-size:14px;line-height:1.6}.stages{display:grid;grid-template-columns:1fr 1fr;gap:20px}.stage{display:block;width:100%;background:#edf0fa;border:1px solid #ccd0df;border-radius:8px}.legend{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}.legend span::before{content:'●';margin-right:6px;color:#5458b9}.legend .absent::before{color:#bc3434}.legend .moved::before{color:#9b5700}textarea{display:block;width:100%;min-height:80px;border:1px solid #c5c9db;border-radius:8px;padding:10px;margin:8px 0 16px}#status{white-space:pre-wrap}#status.error{color:#a12828}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;border-bottom:1px solid #e1e3ef;padding:10px} .table-wrap{overflow:auto}details{margin-top:16px}pre{overflow:auto;font-size:13px}#summary{font-weight:600}#review-status{white-space:pre-wrap}@media(max-width:720px){.stages{grid-template-columns:1fr}.controls>*{width:100%}}
+    :root {
+      --ink: #19213b;
+      --muted: #555e74;
+      --line: #e1e3ef;
+      --field-line: #c5c9db;
+      --page: #f5f6fb;
+      --surface: #ffffff;
+      --brand: #292d64;
+      --accent: #494bb4;
+      --accent-soft: #ecedfa;
+      --dancer: #5458b9;
+      --moved: #9b5700;
+      --absent: #bc3434;
+      --ok: #1b6b45;
+      --ok-soft: #e4f4ec;
+      --bad-soft: #fbe9e9;
+      --focus: #b28b00;
+      --radius: 12px;
+      font-family: system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--page);
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; }
+    h1, h2, h3 { margin: 0; line-height: 1.25; }
+    h1 { font-size: 22px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 15px; }
+    select, button, input, textarea { font: inherit; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    caption { text-align: left; color: var(--muted); font-size: 14px; padding-bottom: 8px; }
+    th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 9px 10px; }
+    th { font-weight: 600; }
+    pre { overflow: auto; font-size: 13px; }
+
+    /* Page frame */
+    header { background: var(--brand); color: white; padding: 16px max(20px, calc((100% - 1240px) / 2)); }
+    header p { margin: 2px 0 0; color: #dddff8; font-size: 14px; }
+    main { max-width: 1280px; margin: 20px auto; padding: 0 20px; }
+    .progress {
+      position: sticky; top: 0; z-index: 2;
+      background: var(--surface); border-bottom: 1px solid var(--line);
+      padding: 0 max(20px, calc((100% - 1240px) / 2));
+    }
+    .progress ol { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+    .progress li { flex: 0 1 150px; counter-increment: step; }
+    .progress a {
+      display: block; padding: 11px 4px; color: var(--muted);
+      font-size: 14px; text-decoration: none; border-bottom: 3px solid transparent;
+    }
+    .progress a::before { content: counter(step) '. '; }
+    .progress .done a { color: var(--ink); }
+    .progress .current a { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .setup { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .setup > .panel { min-width: 0; }
+    .panel {
+      background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 20px; margin-bottom: 20px; scroll-margin-top: 60px;
+    }
+    .panel > h2 { margin-bottom: 12px; }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .divider { border: 0; border-top: 1px solid var(--line); margin: 20px 0; }
+
+    /* Forms */
+    .controls { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+    .controls > a { padding-bottom: 10px; font-size: 14px; }
+    .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; margin-bottom: 12px; }
+    label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; min-width: 0; }
+    label.check { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; }
+    select, button, input[type=file] { padding: 9px 10px; border: 1px solid var(--field-line); border-radius: 8px; max-width: 100%; }
+    select, input[type=file] { width: 100%; min-width: 0; background: var(--surface); color: var(--ink); }
+    textarea {
+      display: block; width: 100%; min-height: 76px; margin: 6px 0 10px; padding: 10px;
+      border: 1px solid var(--field-line); border-radius: 8px;
+    }
+    button { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; cursor: pointer; }
+    button.secondary { background: var(--surface); color: var(--brand); border-color: var(--field-line); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button[aria-busy=true]::after { content: '…'; }
+    :is(a, button, select, textarea, input, summary):focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+    /* Messages */
+    .note { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 10px 0; }
+    .note:empty { display: none; }
+    .note.error {
+      color: #a12828; background: var(--bad-soft);
+      border-left: 3px solid var(--absent); padding: 8px 12px; border-radius: 4px;
+    }
+    #status, #review-status, #result-detail { white-space: pre-wrap; }
+    #summary { color: var(--ink); font-weight: 600; }
+    #routine-info { color: var(--ink); font-weight: 600; }
+    details { margin-top: 12px; font-size: 14px; }
+    summary { cursor: pointer; }
+    details > :not(summary) { margin-top: 10px; }
+    .badge { padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--brand); font-size: 13px; font-weight: 600; }
+    .badge.ok { background: var(--ok-soft); color: var(--ok); }
+    .badge.bad { background: var(--bad-soft); color: #a12828; }
+
+    /* Stage diagrams */
+    .stages { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 14px; }
+    .stages > div { min-width: 0; }
+    .stages h3 { margin-bottom: 8px; }
+    .stage { display: block; width: 100%; background: #edf0fa; border: 1px solid #ccd0df; border-radius: 8px; }
+    #pdf-stage { max-width: 720px; margin: 0 auto; }
+    .stage-floor { fill: var(--surface); stroke: #9ba3c0; }
+    .stage-center { stroke: #c9cee0; stroke-dasharray: 4 6; }
+    .stage-edge { fill: var(--muted); font-size: 13px; letter-spacing: .06em; text-anchor: middle; }
+    .stage-empty { fill: var(--muted); font-size: 18px; text-anchor: middle; }
+    .dancer circle { fill: var(--dancer); }
+    .dancer.moved circle { fill: var(--moved); }
+    .dancer.unavailable circle, .dancer.offstage circle { fill: var(--absent); stroke: var(--ink); stroke-width: 2; stroke-dasharray: 4 3; }
+    .dancer-id { fill: white; font-size: 13px; font-weight: 600; text-anchor: middle; }
+    .dancer-name {
+      fill: var(--ink); font-size: 14px; font-weight: 600; text-anchor: middle;
+      paint-order: stroke; stroke: var(--surface); stroke-width: 3px;
+    }
+    .travel { stroke: var(--moved); stroke-width: 2; stroke-dasharray: 5 4; }
+    .previous { fill: none; stroke: var(--moved); stroke-dasharray: 3 3; }
+    .legend { display: flex; gap: 8px 20px; flex-wrap: wrap; font-size: 14px; margin-top: 12px; }
+    .legend span::before { content: '●'; margin-right: 6px; color: var(--dancer); }
+    .legend .absent::before { color: var(--absent); }
+    .legend .moved::before { color: var(--moved); }
+    .table-wrap { overflow: auto; margin-top: 16px; }
+
+    @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+    @media (max-width: 900px) { .setup, .stages { grid-template-columns: 1fr; } .setup { gap: 0; } }
+    @media (max-width: 720px) {
+      main { padding: 0 12px; margin-top: 12px; }
+      .panel { padding: 16px; margin-bottom: 12px; }
+      .progress { padding: 0 12px; }
+      .progress li { flex: 1 1 0; }
+      .progress a { font-size: 13px; }
+      .controls > * { width: 100%; }
+    }
   </style>
 </head>
 <body>
-<header><h1>FormationRescue</h1><p>Single-dancer absence · Load, compare, and review your routine</p></header>
+<header><h1>FormationRescue</h1><p>Repair a routine when one dancer is out</p></header>
+<nav class="progress" aria-label="Repair progress">
+  <ol>
+    <li id="step-load"><a href="#load-panel">Load</a></li>
+    <li id="step-absence"><a href="#absence-panel">Absence</a></li>
+    <li id="step-compare"><a href="#compare-panel">Compare</a></li>
+    <li id="step-review"><a href="#review-panel">Review</a></li>
+  </ol>
+</nav>
 <main>
-  <section class="panel" aria-labelledby="load-title">
-    <h2 id="load-title">1. Load a routine</h2>
-    <div class="controls"><label>Sway formations PDF<input id="pdf-upload" type="file" accept=".pdf,application/pdf"></label><label>Example routine<select id="example"><option value="">Choose an example…</option></select></label><button id="demo" class="secondary">Load demo routine</button><button id="export-source" class="secondary">Download routine JSON</button></div>
-    <p class="note">Upload a 2D Sway PDF with named dancer markers. Review the extracted formations before loading. No JSON editing or AI key is needed. Scans and screenshots are not supported yet.</p>
-    <p id="pdf-status" class="note" role="status" aria-live="polite"></p>
-    <div id="pdf-preview" hidden>
-      <h3>Review PDF import</h3>
-      <p id="pdf-info" class="note"></p>
-      <div class="controls"><label>PDF formation<select id="pdf-formation"></select></label><label><span>Include this formation</span><input id="pdf-include" type="checkbox"></label><a id="pdf-source" target="_blank" rel="noopener">Open original PDF page</a></div>
-      <p id="pdf-page-status" class="note"></p>
-      <svg id="pdf-stage" class="stage" role="img" aria-label="Extracted PDF formation; backstage at top"></svg>
-      <div class="table-wrap"><table><caption>Extracted dancer positions (feet, measured from the top-left stage corner)</caption><thead><tr><th>Dancer</th><th>x</th><th>y</th></tr></thead><tbody id="pdf-dancers"></tbody></table></div>
-      <p id="pdf-selection" class="note"></p>
-      <div class="controls"><button id="pdf-confirm">Load selected formations</button><button id="pdf-cancel" class="secondary">Cancel import</button></div>
-    </div>
-    <p id="routine-info" class="note"></p>
-    <details><summary>Advanced: import routine JSON</summary><label>Routine JSON file<input id="upload" type="file" accept=".json,application/json"></label></details>
-    <details><summary>JSON format</summary><p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p><pre>{
+  <div class="setup">
+    <section class="panel" id="load-panel" aria-labelledby="load-title">
+      <h2 id="load-title">1. Load a routine</h2>
+      <label>Sway formations PDF<input id="pdf-upload" type="file" accept=".pdf,application/pdf"></label>
+      <p class="note">Use a 2D Sway PDF with named dancer markers. You'll review the extracted formations before they load. Scans and screenshots aren't supported yet.</p>
+      <p id="pdf-status" class="note" role="status" aria-live="polite"></p>
+      <div class="fields">
+        <label>Example routine<select id="example"><option value="">Choose an example…</option></select></label>
+        <button id="demo" class="secondary">Load demo routine</button>
+      </div>
+      <p id="routine-info" class="note"></p>
+      <details>
+        <summary>Advanced: routine JSON</summary>
+        <label>Import routine JSON<input id="upload" type="file" accept=".json,application/json"></label>
+        <button id="export-source" class="secondary">Download routine JSON</button>
+        <p class="note">Use positive stage dimensions, named formations, and unique dancer IDs with numeric x/y coordinates inside the stage. Coordinates use stage units; y increases downward.</p>
+        <pre>{
   "stage": {"width": 10, "height": 6},
   "formations": [{
     "name": "Opening",
     "dancers": [{"id": "A", "x": 2, "y": 3},
                 {"id": "B", "x": 5, "y": 3}]
   }]
-}</pre></details>
+}</pre>
+      </details>
+    </section>
+    <section class="panel" id="absence-panel" aria-labelledby="repair-title">
+      <h2 id="repair-title">2. Mark an absence</h2>
+      <p id="absence-source" class="note" aria-live="polite"></p>
+      <div class="fields">
+        <label>Unavailable dancer<select id="missing"></select></label>
+        <label>Repair preference<select id="preference"><option value="minimize_changes">Minimize changes</option><option value="preserve_center">Preserve center</option></select></label>
+      </div>
+      <button id="run">Generate repair</button>
+      <p id="status" class="note" role="status" aria-live="polite">Select an unavailable dancer, then generate a repair.</p>
+      <hr class="divider">
+      <h3 id="ai-title">Or describe your priority to AI</h3>
+      <label for="ai-instruction" class="note">Your priority</label>
+      <textarea id="ai-instruction" maxlength="2000" placeholder="Keep the center dancers in place as much as possible."></textarea>
+      <button id="ai-run" class="secondary">Generate AI-guided repair</button>
+      <p class="note">AI translates this into “minimize changes” or “preserve center.” It doesn't generate choreography or optimize left/right step directions, and shape-specific repairs may prioritize their built-in layout rules.</p>
+      <p id="ai-status" class="note" role="status" aria-live="polite">Manual preferences work without an AI service.</p>
+    </section>
+  </div>
+  <section class="panel" id="pdf-preview" aria-labelledby="pdf-title" hidden>
+    <h2 id="pdf-title">Review PDF import</h2>
+    <p id="pdf-info" class="note"></p>
+    <div class="controls">
+      <label>PDF formation<select id="pdf-formation"></select></label>
+      <label class="check"><input id="pdf-include" type="checkbox"><span>Include this formation</span></label>
+      <a id="pdf-source" target="_blank" rel="noopener">Open original PDF page</a>
+    </div>
+    <p id="pdf-page-status" class="note"></p>
+    <svg id="pdf-stage" class="stage" role="img" aria-label="Extracted PDF formation; backstage at top"></svg>
+    <div class="table-wrap"><table><caption>Extracted dancer positions (feet, measured from the top-left stage corner)</caption><thead><tr><th>Dancer</th><th>x</th><th>y</th></tr></thead><tbody id="pdf-dancers"></tbody></table></div>
+    <p id="pdf-selection" class="note"></p>
+    <div class="controls"><button id="pdf-confirm">Load selected formations</button><button id="pdf-cancel" class="secondary">Cancel import</button></div>
   </section>
-  <section class="panel" aria-labelledby="repair-title">
-    <h2 id="repair-title">2. Mark an absence</h2>
-    <p id="absence-source" class="note" aria-live="polite"></p>
-    <div class="controls"><label>Unavailable dancer<select id="missing"></select></label><label>Formation to view<select id="formation"></select></label><label>Repair preference<select id="preference"><option value="minimize_changes">Minimize changes</option><option value="preserve_center">Preserve center</option></select></label><button id="run">Generate repair</button></div>
-    <p id="status" class="note" role="status" aria-live="polite">Select an unavailable dancer, then generate a repair.</p>
-  </section>
-  <section class="panel" aria-labelledby="ai-title">
-    <h2 id="ai-title">AI repair instructions</h2>
-    <label for="ai-instruction">Describe your priority</label>
-    <textarea id="ai-instruction" maxlength="2000" placeholder="Keep the center dancers in place as much as possible."></textarea>
-    <p class="note">AI translates this instruction into either “minimize changes” or “preserve center.” It does not generate choreography or optimize left/right step directions. Shape-specific repairs may prioritize their built-in layout rules.</p>
-    <button id="ai-run">Generate AI-guided repair</button>
-    <p id="ai-status" class="note" role="status" aria-live="polite">Manual preferences work without an AI service.</p>
-  </section>
-  <section class="panel" aria-label="Formation comparison">
-    <div class="legend"><span>Unchanged dancer</span><span class="absent">Unavailable dancer</span><span class="moved">Moved dancer / dashed travel path</span></div>
-    <label>Repair layout<select id="layout" disabled><option value="0">Generate a repair first</option></select></label>
+  <section class="panel" id="compare-panel" aria-labelledby="compare-title">
+    <div class="panel-head"><h2 id="compare-title">3. Compare formations</h2><span id="validity" class="badge">No proposal yet</span></div>
+    <div class="fields">
+      <label>Formation to view<select id="formation"></select></label>
+      <label>Repair layout<select id="layout" disabled><option value="0">Generate a repair first</option></select></label>
+    </div>
     <p id="layout-note" class="note">Alternative layouts are available for supported three-column formations.</p>
     <p id="summary" class="note">No repair generated yet.</p>
-    <div class="stages"><div><h2>Original</h2><svg class="stage" id="original" role="img" aria-label="Original formation"></svg></div><div><h2>Proposed repair</h2><svg class="stage" id="repaired" role="img" aria-label="Proposed formation"></svg><p id="proposal-note" class="note">Generate a repair to see proposed positions.</p></div></div>
+    <p id="result-detail" class="note" hidden></p>
+    <div class="stages">
+      <div><h3>Original</h3><svg class="stage" id="original" role="img" aria-label="Original formation"></svg></div>
+      <div><h3>Proposed repair</h3><svg class="stage" id="repaired" role="img" aria-label="Proposed formation"></svg><p id="proposal-note" class="note">Generate a repair to see proposed positions.</p></div>
+    </div>
+    <div class="legend"><span>Unchanged dancer</span><span class="absent">Unavailable dancer</span><span class="moved">Moved dancer / dashed travel path</span></div>
     <div class="table-wrap"><table><caption>Position changes in the selected formation</caption><thead><tr><th>Dancer</th><th>Original (x, y)</th><th>Proposed (x, y)</th><th>Distance</th></tr></thead><tbody id="changes"></tbody></table></div>
+    <p id="changes-empty" class="note">Position changes appear here after you generate a repair.</p>
   </section>
-  <section class="panel" aria-labelledby="review-title">
-    <h2 id="review-title">3. Review the whole routine</h2>
-    <p class="note">Approval applies to all formations in this proposal. Geometric validation does not check choreography directions or transition feasibility; captain review is required. Decisions are stored only in this browser and can be downloaded with the proposal.</p>
-    <label for="review-note">Review notes (optional)</label><textarea id="review-note" maxlength="2000" placeholder="What works, or what needs to change?"></textarea>
+  <section class="panel" id="review-panel" aria-labelledby="review-title">
+    <h2 id="review-title">4. Review the whole routine</h2>
+    <p class="note">Approval applies to every formation in this proposal. Geometry checks don't cover choreography directions or transition feasibility, so captain review is required. Decisions are stored only in this browser and can be downloaded with the proposal.</p>
+    <label for="review-note">Review notes (optional)</label>
+    <textarea id="review-note" maxlength="2000" placeholder="What works, or what needs to change?"></textarea>
     <div class="controls"><button id="approve" disabled>Approve repair</button><button id="reject" class="secondary" disabled>Reject repair</button><button id="export-review" class="secondary" disabled>Download proposal and review</button></div>
     <p id="review-status" class="note" role="status" aria-live="polite">No review recorded.</p>
     <details><summary>Saved review history on this browser</summary><ul id="history"></ul></details>
@@ -76,6 +246,7 @@ const ns = 'http://www.w3.org/2000/svg';
 const storageKey = 'formationrescue.reviews.v1';
 let routine, result = null, review = null, generation = 0, controller = null, loading = false;
 let requestContext = null;
+let activeButton = null;
 let candidates = [];
 let pdfDraft = null, pdfURL = null, pdfName = "", pdfSelected = new Set();
 const ids = Array.from({length:12}, (_,i) => String.fromCharCode(65+i));
@@ -131,13 +302,14 @@ function validateRoutine(value, allowEmptyFormations=false) {
   });
   return value;
 }
-function status(message,error=false) { $('status').textContent=message; $('status').classList.toggle('error',error); }
+function setNote(id,message,error=false) { $(id).textContent=message; $(id).classList.toggle('error',error); }
+function status(message,error=false) { setNote('status',message,error); }
 function resetProposal(message='Selection changed. Generate a new repair.') {
-  generation++; controller?.abort(); controller=null; loading=false; result=null; review=null; candidates=[];
+  generation++; controller?.abort(); controller=null; loading=false; activeButton=null; result=null; review=null; candidates=[];
   $('layout').replaceChildren(new Option('Generate a repair first','0')); $('layout').disabled=true;
   $('layout-note').textContent='Alternative layouts are available for supported three-column formations.';
   $('run').disabled=false; $('ai-run').disabled=false; requestContext=null;
-  $('ai-status').textContent='Manual preferences work without an AI service.'; $('review-note').value=''; $('review-status').textContent='No review recorded.';
+  setNote('ai-status','Manual preferences work without an AI service.'); $('review-note').value=''; $('review-status').textContent='No review recorded.';
   status(message); refresh();
 }
 function loadRoutine(value,label) {
@@ -154,6 +326,7 @@ function svgNode(tag,attrs,text) {
   if(text!==undefined) node.textContent=text;
   return node;
 }
+function dancers(count) {return `${count} dancer${count===1?'':'s'}`;}
 function distance(a,b) {return Math.hypot(a.x-b.x,a.y-b.y);}
 function draw(id,formation,original,stage=routine.stage,showOutside=false) {
   const svg=$(id), {width,height}=stage;
@@ -162,29 +335,50 @@ function draw(id,formation,original,stage=routine.stage,showOutside=false) {
   const left=Math.min(0,...people.map(p=>p.x*scale))-45, top=Math.min(0,...people.map(p=>p.y*scale))-45;
   const right=Math.max(w,...people.map(p=>p.x*scale))+45, bottom=Math.max(h,...people.map(p=>p.y*scale))+45;
   svg.setAttribute('viewBox',`${left} ${top} ${right-left} ${bottom-top}`); svg.replaceChildren();
-  svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,fill:'none',stroke:'#9ba3c0'}));
-  svg.append(svgNode('text',{x:w/2,y:-22,'text-anchor':'middle',fill:'#555e74','font-size':12},'BACKSTAGE'));
-  svg.append(svgNode('text',{x:w/2,y:h+28,'text-anchor':'middle',fill:'#555e74','font-size':12},'AUDIENCE'));
-  if(!formation) return;
+  svg.append(svgNode('rect',{x:0,y:0,width:w,height:h,class:'stage-floor'}));
+  svg.append(svgNode('line',{x1:w/2,y1:0,x2:w/2,y2:h,class:'stage-center'}));
+  svg.append(svgNode('text',{x:w/2,y:-22,class:'stage-edge'},'BACKSTAGE'));
+  svg.append(svgNode('text',{x:w/2,y:h+28,class:'stage-edge'},'AUDIENCE'));
+  if(!formation) {svg.append(svgNode('text',{x:w/2,y:h/2,class:'stage-empty'},'No proposal yet'));return;}
   const before=new Map((original?.dancers||[]).map(p=>[p.id,p]));
   for(const p of formation.dancers) {
     const old=before.get(p.id), moved=old && distance(p,old)>0.00001;
+    const x=p.x*scale, y=p.y*scale;
     if(moved) {
-      svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:p.x*scale,y2:p.y*scale,stroke:'#9b5700','stroke-width':2,'stroke-dasharray':'5 4'}));
-      svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,fill:'none',stroke:'#9b5700','stroke-dasharray':'3 3'}));
+      svg.append(svgNode('line',{x1:old.x*scale,y1:old.y*scale,x2:x,y2:y,class:'travel'}));
+      svg.append(svgNode('circle',{cx:old.x*scale,cy:old.y*scale,r:15,class:'previous'}));
     }
-    const absent=(id==='original' && p.id===$('missing').value) || (showOutside && (p.x<0 || p.y<0 || p.x>width || p.y>height));
-    const g=svgNode('g',{});g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${absent?' — unavailable':moved?' — moved':''}`));
-    g.append(svgNode('circle',{cx:p.x*scale,cy:p.y*scale,r:16,fill:absent?'#bc3434':moved?'#9b5700':'#5458b9'}));
-    g.append(svgNode('text',{x:p.x*scale,y:p.y*scale+4,'text-anchor':'middle',fill:'white','font-size':12},p.id.length>3?p.id.slice(0,3)+'…':p.id));
-    if(p.id.length>3)g.append(svgNode('text',{x:p.x*scale,y:p.y*scale-21,'text-anchor':'middle',fill:'#19213b','font-size':11},p.id));
+    const unavailable=id==='original' && p.id===$('missing').value;
+    const offstage=showOutside && (p.x<0 || p.y<0 || p.x>width || p.y>height);
+    const state=offstage?'offstage':unavailable?'unavailable':moved?'moved':'';
+    const g=svgNode('g',{class:`dancer ${state}`.trim()});
+    g.append(svgNode('title',{},`${p.id}: (${p.x}, ${p.y})${state?' — '+state:''}`));
+    g.append(svgNode('circle',{cx:x,cy:y,r:16}));
+    // Short IDs fit inside the marker; full names sit above it so similar names stay distinct.
+    if(p.id.length<=3)g.append(svgNode('text',{x,y:y+5,class:'dancer-id'},p.id));
+    else g.append(svgNode('text',{x,y:y-22,class:'dancer-name'},p.id.length>12?p.id.slice(0,11)+'…':p.id));
     svg.append(g);
   }
+}
+const steps=['step-load','step-absence','step-compare','step-review'];
+function updateProgress() {
+  const current=pdfDraft || !routine ? 0 : !result ? 1 : review ? 3 : 2;
+  steps.forEach((id,i)=>{
+    $(id).classList.toggle('done',i<current);$(id).classList.toggle('current',i===current);
+    if(i===current)$(id).setAttribute('aria-current','step');else $(id).removeAttribute('aria-current');
+  });
 }
 function refresh() {
   if(!routine) return;
   const i=Number($('formation').value), original=routine.formations[i], proposed=result?.routine.formations[i];
   draw('original',original); draw('repaired',proposed,original);
+  $('original').setAttribute('aria-label',`Original formation ${original.name}: ${dancers(original.dancers.length)}, ${$('missing').value} unavailable.`);
+  const movedHere=proposed ? proposed.dancers.filter(p=>{const old=original.dancers.find(q=>q.id===p.id);return old && distance(p,old)>0.00001;}).length : 0;
+  $('repaired').setAttribute('aria-label',proposed?`Proposed formation ${proposed.name}: ${dancers(proposed.dancers.length)}, ${movedHere} moved.`:'Proposed formation: no repair generated yet.');
+  $('validity').textContent=result ? (result.valid?'Geometry checks passed':'Failed validation') : 'No proposal yet';
+  $('validity').classList.toggle('ok',Boolean(result?.valid));$('validity').classList.toggle('bad',Boolean(result) && !result.valid);
+  const detail=result ? [...result.errors,result.note].filter(Boolean).join('\n') : '';
+  $('result-detail').textContent=detail;$('result-detail').hidden=!detail;$('result-detail').classList.toggle('error',Boolean(result) && !result.valid);
   $('proposal-note').textContent=result ? (result.valid?'Review moved positions and transitions before approval.':'Invalid proposal. Approval is disabled; review the validation errors.') : 'Generate a repair to see proposed positions.';
   $('summary').textContent=result ? `${result.candidate_label || 'Primary repair'} · ${result.changed_assignments ?? '—'} moved positions across the routine · total displacement: ${result.total_displacement ?? '—'} stage units` : 'No repair generated yet.';
   $('changes').replaceChildren();
@@ -195,15 +389,19 @@ function refresh() {
     [p.id,`(${p.x}, ${p.y})`,after?`(${after.x}, ${after.y})`:'Removed',after?distance(p,after).toFixed(3):'—'].forEach(value=>{const td=document.createElement('td');td.textContent=value;row.append(td);});
     $('changes').append(row);
   }
+  $('changes-empty').hidden=Boolean(proposed);
   const awaitingPDF=pdfDraft!==null;
   $('missing').disabled=awaitingPDF || loading; $('formation').disabled=awaitingPDF || loading;
   $('run').disabled=awaitingPDF || loading; $('ai-run').disabled=awaitingPDF || loading;
   $('approve').disabled=!result?.valid || loading; $('reject').disabled=!result || loading; $('export-review').disabled=!result || loading;
+  for(const id of ['run','ai-run'])$(id).setAttribute('aria-busy',String(loading && activeButton===id));
+  updateProgress();
 }
 function readHistory() { const records=JSON.parse(localStorage.getItem(storageKey)||'[]'); if(!Array.isArray(records)) throw Error('Invalid saved review history.'); return records; }
+function formatWhen(value) { const when=new Date(value); return Number.isNaN(when.getTime())?String(value):when.toLocaleString(); }
 function showHistory() {
   $('history').replaceChildren();
-  try {for(const record of readHistory().slice().reverse()) {const li=document.createElement('li');li.textContent=`${record.reviewed_at} · ${record.decision} · unavailable dancer ${record.missing}${record.notes?' · '+record.notes:''}`;$('history').append(li);}}
+  try {for(const record of readHistory().slice().reverse()) {const li=document.createElement('li');li.textContent=`${formatWhen(record.reviewed_at)} · ${record.decision} · unavailable dancer ${record.missing}${record.notes?' · '+record.notes:''}`;$('history').append(li);}}
   catch {const li=document.createElement('li');li.textContent='Browser review storage is unavailable. You can still download your current review.';$('history').append(li);}
   if(!$('history').children.length){const li=document.createElement('li');li.textContent='No saved reviews yet.';$('history').append(li);}
 }
@@ -212,7 +410,7 @@ function recordReview(decision) {
   const record={decision,reviewed_at:new Date().toISOString(),missing:$('missing').value,notes:$('review-note').value,original:routine,proposal:result,request:requestContext};
   try {const history=readHistory();history.push(record);localStorage.setItem(storageKey,JSON.stringify(history));review=record;$('review-status').textContent=`Repair ${decision}. Saved in this browser at ${new Date(record.reviewed_at).toLocaleString()}.`;}
   catch {review=record;$('review-status').textContent=`Repair ${decision}, but browser storage failed. Download the proposal and review to keep this decision.`;}
-  showHistory();
+  showHistory();updateProgress();
 }
 function download(name,value) {
   const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));
@@ -222,7 +420,7 @@ function download(name,value) {
 function clearPDFPreview() {
   pdfDraft=null;pdfSelected=new Set();$('pdf-preview').hidden=true;
   if(pdfURL)URL.revokeObjectURL(pdfURL);pdfURL=null;
-  $('pdf-source').removeAttribute('href');$('pdf-status').textContent='';
+  $('pdf-source').removeAttribute('href');setNote('pdf-status','');
   if(routine)refresh();
 }
 function refreshPDFPreview() {
@@ -232,6 +430,7 @@ function refreshPDFPreview() {
   $('pdf-source').href=`${pdfURL}#page=${report.page}`;
   $('pdf-page-status').textContent=report.issues.length?`${formation.name} cannot be loaded for repair: ${report.issues.join(' ')} Offstage dancers are shown in red; their positions have not been changed.`:`${formation.name}: ${formation.dancers.length} dancers extracted. Check names and positions against the original PDF.`;
   draw('pdf-stage',formation,null,pdfDraft.routine.stage,true);
+  $('pdf-stage').setAttribute('aria-label',`Extracted PDF formation ${formation.name}: ${dancers(formation.dancers.length)}; backstage at top.`);
   $('pdf-dancers').replaceChildren();
   for(const dancer of formation.dancers){const row=document.createElement('tr');for(const value of [dancer.id,dancer.x,dancer.y]){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}$('pdf-dancers').append(row);}
   const omitted=pdfDraft.routine.formations.filter((_,i)=>!pdfSelected.has(i)).map(f=>f.name);
@@ -256,8 +455,8 @@ $('pdf-upload').onchange=async event=>{
     $('pdf-formation').replaceChildren(...data.pages.map((page,i)=>new Option(`Page ${page.page}: ${page.name}${page.importable?'':' — needs review / excluded'}`,i)));
     $('pdf-info').textContent=`${file.name} · ${data.pages.length} formations · stage ${data.routine.stage.width} × ${data.routine.stage.height} ft. ${(data.warnings||[]).join(' ')}`;
     $('pdf-preview').hidden=false;$('pdf-status').textContent='Extraction complete. Review the preview, then load selected formations.';
-    refreshPDFPreview();$('absence-source').textContent='Finish the PDF preview above and click “Load selected formations” to use its dancer names and F-number labels here.';status('PDF preview ready. Click “Load selected formations” above to update the absence and formation lists.');
-  } catch(error){if(version===generation && error.name!=='AbortError'){$('pdf-status').textContent=`Could not import PDF: ${error.message}`;status('PDF import failed. The previous routine is still loaded.',true);}}
+    refreshPDFPreview();$('pdf-preview').scrollIntoView?.({block:'start'});$('absence-source').textContent='Finish the PDF preview below and click “Load selected formations” to use its dancer names and F-number labels here.';status('PDF preview ready. Click “Load selected formations” below to update the absence and formation lists.');
+  } catch(error){if(version===generation && error.name!=='AbortError'){setNote('pdf-status',`Could not import PDF: ${error.message}`,true);status('PDF import failed. The previous routine is still loaded.',true);}}
   finally{event.target.value='';if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
 };
 $('pdf-formation').onchange=refreshPDFPreview;
@@ -267,7 +466,7 @@ $('pdf-confirm').onclick=()=>{
   if(!pdfDraft || !pdfSelected.size)return;
   const selected=pdfDraft.routine.formations.filter((_,i)=>pdfSelected.has(i));
   try{const count=selected.length, total=pdfDraft.pages.length;loadRoutine({stage:{...pdfDraft.routine.stage},formations:selected},`${pdfName} (${count}/${total} PDF formations)`);status('PDF formations loaded. Select an unavailable dancer and generate a repair.');}
-  catch(error){$('pdf-status').textContent=`Cannot load selected formations: ${error.message}`;}
+  catch(error){setNote('pdf-status',`Cannot load selected formations: ${error.message}`,true);}
 };
 
 $('upload').onchange=async event=>{
@@ -282,6 +481,7 @@ Object.keys(choreographyExamples).forEach(name=>$('example').append(new Option(n
 $('example').onchange=()=>{
   const name=$('example').value, data=choreographyExamples[name];if(!data)return;
   loadRoutine({stage:{width:12,height:8},formations:data.formations.map(f=>({name:f.name,dancers:data.names.map(id=>({id,x:f.points[id][0],y:f.points[id][1]}))}))},`${name} (approximate reconstruction)`);
+  $('example').value=name;
 };
 $('demo').onclick=()=>loadRoutine(demoRoutine(),'Demo routine');
 $('missing').onchange=()=>resetProposal();$('formation').onchange=refresh;
@@ -314,7 +514,7 @@ function movementMetrics(value) {
 $('layout').onchange=()=>{
   const candidate=candidates[Number($('layout').value)];if(!candidate)return;
   result=candidate;review=null;$('review-note').value='';$('review-status').textContent='Layout changed. No review recorded for this selection.';
-  status(`${result.candidate_label}: ${result.valid?'Geometry checks passed.':'Proposal failed validation.'}${result.note?'\n'+result.note:''}`,!result.valid);refresh();
+  status(`${result.candidate_label}: ${result.valid?'Geometry checks passed.':'Proposal failed validation.'}`,!result.valid);refresh();
 };
 const supportedPreferences = ['minimize_changes','preserve_center'];
 async function requestJSON(url,body,signal) {
@@ -324,11 +524,11 @@ async function requestJSON(url,body,signal) {
   return data;
 }
 async function generateRepair(useAI=false) {
-  if(pdfDraft){status('Finish the PDF import above before generating a repair.');return;}
+  if(pdfDraft){status('Finish the PDF import below before generating a repair.');return;}
   const instruction=$('ai-instruction').value.trim();
-  if(useAI && !instruction){$('ai-status').textContent='Enter an instruction before requesting AI repair.';return;}
+  if(useAI && !instruction){setNote('ai-status','Enter an instruction before requesting AI repair.',true);return;}
   resetProposal(useAI?'Interpreting AI instruction…':'Generating repair…');
-  loading=true;$('run').disabled=true;$('ai-run').disabled=true;refresh();
+  loading=true;activeButton=useAI?'ai-run':'run';$('run').disabled=true;$('ai-run').disabled=true;refresh();
   const version=generation;controller=new AbortController();const signal=controller.signal;
   let preference=$('preference').value;
   try {
@@ -363,12 +563,13 @@ async function generateRepair(useAI=false) {
     $('layout').value='0';$('layout').disabled=candidates.length<2;
     $('layout-note').textContent=`${candidates.length-1} alternative layouts available. Metrics and decisions apply to the selected whole-routine proposal.${skipped?' Invalid or malformed alternatives were omitted.':''}`;
     result=candidates[0];
-    status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
+    status([data.valid?'Geometry checks passed.':'Proposal failed validation.',...data.errors].join('\n'),!data.valid);
     if(useAI)$('ai-status').textContent=`AI selected: ${preference}. Repair received; review its validation status below.`;
+    $('compare-panel').scrollIntoView?.({block:'start'});
   } catch(error) {
     if(version===generation && error.name!=='AbortError'){
       status(`Repair failed: ${error.message}`,true);
-      if(useAI)$('ai-status').textContent=`AI-guided repair failed: ${error.message} You can use the manual preference controls.`;
+      if(useAI)setNote('ai-status',`AI-guided repair failed: ${error.message} You can use the manual preference controls.`,true);
     }
   } finally {if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
 }
