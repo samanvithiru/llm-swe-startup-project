@@ -31,11 +31,20 @@ def assert_safe(before, after, missing, stage=STAGE):
 
 def test_missing_dancer_not_present_does_not_change_formation():
     before = dancers([(4, 5), (8, 5), (12, 5)])
-    after, quality = pr.repair_pdf_formation(
-        {"dancers": before}, "Nobody", "minimize_changes", STAGE
-    )
-    assert after == before
-    assert quality == {}
+    original = [dict(p) for p in before]
+
+    for preference in ["minimize_changes", "preserve_center"]:
+        for missing in ["Nobody", "Unknown", ""]:
+            after, quality = pr.repair_pdf_formation(
+                {"dancers": before},
+                missing,
+                preference,
+                STAGE
+            )
+
+            assert after == original
+            assert quality == {}
+            assert before == original
 
 
 def test_removing_only_dancer_returns_empty():
@@ -145,10 +154,29 @@ def test_overlapping_dancers_are_invalid():
 
 
 def test_clustering_uses_transverse_coordinate():
-    pts = dancers([(3, 4), (8, 4), (3, 15), (8, 15)])
-    groups = pr._cluster(pts, "y", 0.3)
+    pts = dancers([
+        (3, 4.0),
+        (8, 4.1),
+        (3, 15.0),
+        (8, 15.1)
+    ])
 
+    # Small variations should remain in the same row
+    groups = pr._cluster(pts, "y", 0.2)
+
+    assert len(groups) == 2
     assert sorted(len(g) for g in groups) == [2, 2]
+
+    # A strict tolerance should separate the positions
+    strict_groups = pr._cluster(pts, "y", 0.01)
+
+    assert len(strict_groups) == 4
+    assert all(len(g) == 1 for g in strict_groups)
+
+    # Large tolerance should combine the nearby points
+    wide_groups = pr._cluster(pts, "y", 0.5)
+
+    assert sorted(len(g) for g in wide_groups) == [2, 2]
 
 
 def test_median_even_and_odd():
@@ -180,11 +208,44 @@ def test_reflow_diagonal_returns_updates_for_all_survivors():
     assert set(updates) == {"D0", "D2", "D3"}
 
 
-def test_symmetry_error_is_zero_for_mirrored_row():
-    pts = dancers([(4, 8), (8, 8), (12, 8)])
 
-    assert pr._symmetry(pts, "x", 8) == pytest.approx(0)
+def test_symmetry_error_is_zero_for_mirrored_row():
+    # Perfect horizontal symmetry
+    symmetric = dancers([
+        (4, 8),
+        (8, 8),
+        (12, 8)
+    ])
+
+    assert pr._symmetry(
+        symmetric, "x", 8
+    ) == pytest.approx(0)
+
+    # One dancer shifted creates asymmetry
+    asymmetric = dancers([
+        (4, 8),
+        (8, 8),
+        (13, 8)
+    ])
+
+    assert pr._symmetry(
+        asymmetric, "x", 8
+    ) > 0
+
+    # Perfect vertical symmetry
+    vertical = dancers([
+        (8, 4),
+        (8, 8),
+        (8, 12)
+    ])
+
+    assert pr._symmetry(
+        vertical, "y", 8
+    ) == pytest.approx(0)
+
+    # An empty formation should not crash
     assert pr._symmetry([], "x", 8) == 0
+
 
 
 def test_quality_reports_movement_and_spacing():

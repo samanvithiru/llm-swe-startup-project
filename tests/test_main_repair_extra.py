@@ -405,18 +405,40 @@ def test_valid_routine_has_no_validation_errors():
 
 
 def test_overlapping_dancers_are_rejected():
-    formation = make_formation(
-        "Overlap",
-        [
-            ("A", 5, 5),
-            ("B", 5.1, 5.1),
-            ("C", 12, 12),
-        ],
-    )
+    # Test distances around the minimum spacing threshold
+    # The default minimum spacing is 0.6
 
-    errors = validate(make_routine(formation))
+    test_cases = [
+        (0.0, True),      # Identical positions
+        (0.3, True),      # Too close
+        (0.599, True),    # Just below threshold
+        (0.6, False),     # Exactly at threshold
+        (0.601, False),   # Just above threshold
+        (1.0, False),     # Safely separated
+    ]
 
-    assert len(errors) > 0
+    for distance, should_fail in test_cases:
+        formation = make_formation(
+            "Spacing Test",
+            [
+                ("A", 5, 5),
+                ("B", 5 + distance, 5),
+                ("C", 12, 12),
+            ],
+        )
+
+        errors = validate(make_routine(formation))
+
+        spacing_errors = [
+            e for e in errors
+            if "too close" in e.lower()
+        ]
+
+        if should_fail:
+            assert len(spacing_errors) > 0
+        else:
+            assert spacing_errors == []
+
 
 
 def test_dancer_outside_stage_is_rejected():

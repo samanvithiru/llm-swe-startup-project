@@ -3,9 +3,24 @@ import pytest
 from app.ai_preferences import interpret_preference
 
 
+
 def test_minimize_movement():
-    result = interpret_preference("Minimize movement for everyone")
-    assert result["preference"] == "minimize_changes"
+    instructions = [
+        "Minimize movement for everyone",
+        "MINIMIZE MOVEMENT",
+        "minimize dancer changes",
+        "  Minimize movement  ",
+        "least movement",
+        "LEAST MOVEMENT for the dancers",
+    ]
+
+    for instruction in instructions:
+        result = interpret_preference(instruction)
+
+        assert result == {
+            "preference": "minimize_changes"
+        }
+
 
 
 def test_preserve_center():

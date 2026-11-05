@@ -23,9 +23,23 @@ def test_minimize_changes():
 
 
 # Check that invalid JSON is rejected
+
 def test_invalid_json():
-    with pytest.raises(ValueError):
-        parse_llm_preference("This is not JSON")
+    invalid_responses = [
+        "This is not JSON",
+        '{"preference":',
+        None,
+        "[]",
+        "null",
+        '"minimize_changes"',
+        "123",
+        "true"
+    ]
+
+    for response in invalid_responses:
+        with pytest.raises(ValueError):
+            parse_llm_preference(response)
+
 
 
 # Check that unsupported preferences are rejected
