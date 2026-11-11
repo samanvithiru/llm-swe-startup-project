@@ -6,6 +6,7 @@ from __future__ import annotations
 from math import dist, hypot
 
 
+
 def validate(
     routine: dict,
     missing: str | None = None,
@@ -69,19 +70,22 @@ def validate(
                     f"Formation {fi + 1}: {p['id']} outside stage"
                 )
 
-        # Check dancer spacing
+        # Check dancer spacing with floating-point tolerance
         for i, a in enumerate(dancers):
             for b in dancers[i + 1:]:
-                if dist(
+                distance = dist(
                     (a["x"], a["y"]),
                     (b["x"], b["y"])
-                ) < min_spacing:
+                )
+
+                if distance < min_spacing - 1e-9:
                     errors.append(
                         f"Formation {fi + 1}: "
                         f"{a['id']} and {b['id']} too close"
                     )
 
     return errors
+
 
 
 def is_two_row_formation(formation: dict) -> bool:
