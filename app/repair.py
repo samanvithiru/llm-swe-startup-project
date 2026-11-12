@@ -733,3 +733,15 @@ def repair(routine: dict, missing: str, preference: str = "minimize_changes") ->
             "Transitions and choreography still require captain review."
         )
     }
+
+# ---------------------------------------------------------------------------
+# New advanced AI-specific interface. Legacy repair() remains unchanged.
+# ---------------------------------------------------------------------------
+def rank_candidates(source, missing, candidates, requirements):
+    from .priority_repair import rank_candidates as _rank
+    return _rank(source, missing, candidates, requirements)
+
+
+def repair_with_requirements(source, missing, requirements):
+    from .priority_repair import repair_with_requirements as _repair
+    return _repair(source, missing, requirements)

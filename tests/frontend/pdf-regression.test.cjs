@@ -29,20 +29,22 @@ test('failed/cancelled PDF replacement retains the last confirmed routine',async
   assert.match(p.el('pdf-status').textContent,/Unsupported PDF layout/);
   assert.equal(p.el('missing').options[0].value,'Rhea');assert.equal(p.el('run').disabled,false);
 });
-test('AI preference chaining and service-error recovery survive the restyle',async()=>{
+test('advanced AI route and service-error recovery survive the restyle',async()=>{
   const p=page(),data=draft();await confirm(p,data);const requests=[];
-  p.el('ai-instruction').value='Keep the center';
+  p.el('ai-instruction').value='Prioritize symmetry';
   p.context.fetch=async(url,options)=>{
     const body=JSON.parse(options.body);requests.push({url,body});
-    return {ok:true,json:async()=>url==='/api/ai-preference'?{preference:'preserve_center'}:repairReply(data,body.missing)};
+    return {ok:true,json:async()=>({...repairReply(data,body.missing),requirements:{primary_priority:'symmetry',secondary_priorities:[],constraints:{}}})};
   };
   await p.el('ai-run').onclick();
-  assert.deepEqual(requests.map(r=>r.url),['/api/ai-preference','/api/repair']);
-  assert.equal(requests[0].body.instruction,'Keep the center');assert.equal(requests[1].body.preference,'preserve_center');
+  assert.deepEqual(requests.map(r=>r.url),['/api/repair-ai']);
+  assert.equal(requests[0].body.instruction,'Prioritize symmetry');
   assert.equal(p.el('approve').disabled,false);
   p.context.fetch=async()=>({ok:false,json:async()=>({detail:'AI service is currently unavailable.'})});
-  await p.el('ai-run').onclick();assert.match(p.el('ai-status').textContent,/unavailable/);
-  assert.equal(p.el('run').disabled,false);assert.equal(p.el('approve').disabled,true);
+  await p.el('ai-run').onclick();
+  assert.match(p.el('ai-status').textContent,/unavailable/);
+  assert.equal(p.el('run').disabled,false);
+  assert.equal(p.el('approve').disabled,true);
 });
 test('invalid geometry cannot be approved and invalid rosters are rejected',async()=>{
   const p=page(),data=draft();await confirm(p,data);

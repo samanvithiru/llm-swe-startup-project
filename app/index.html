@@ -93,7 +93,7 @@
     <h2 id="ai-title">AI repair instructions</h2>
     <label for="ai-instruction">Describe your priority</label>
     <textarea id="ai-instruction" maxlength="2000" placeholder="Keep the center dancers in place as much as possible."></textarea>
-    <p class="note">AI translates this instruction into either “minimize changes” or “preserve center.” It does not generate choreography or optimize left/right step directions. Shape-specific repairs may prioritize their built-in layout rules.</p>
+    <p class="note">AI interprets symmetry, fewest dancers moved, total travel distance, or center preservation, and supports a maximum moved-dancers constraint. Suggestions still need captain review. Left/right choreography direction optimization is not supported yet.</p>
     <button id="ai-run">Generate AI-guided repair</button>
     <p id="ai-status" class="note" role="status" aria-live="polite">Manual preferences work without an AI service.</p>
   </section>
@@ -354,47 +354,70 @@ async function generateRepair(useAI=false) {
   resetProposal(useAI?'Interpreting AI instruction…':'Generating repair…');
   loading=true;$('run').disabled=true;$('ai-run').disabled=true;refresh();
   const version=generation;controller=new AbortController();const signal=controller.signal;
-  let preference=$('preference').value;
+  const preference=$('preference').value;
   try {
+    let data;
     if(useAI){
-      $('ai-status').textContent='Interpreting your instruction…';
-      const parsed=await requestJSON('/api/ai-preference',{instruction},signal);
+      $('ai-status').textContent='Interpreting requirements and optimizing repairs…';
+      data=await requestJSON('/api/repair-ai',{
+        routine,missing:$('missing').value,instruction
+      },signal);
       if(version!==generation)return;
-      if(!supportedPreferences.includes(parsed.preference))throw Error('AI returned an unsupported repair preference.');
-      preference=parsed.preference;
-      $('preference').value=preference;
-      $('ai-status').textContent=`AI selected: ${preference}. Generating repair…`;
+      if(!data.requirements || typeof data.requirements.primary_priority!=='string'){
+        throw Error('AI returned invalid structured requirements.');
+      }
+      $('ai-status').textContent=`AI priority: ${data.requirements.primary_priority}. Reviewing repair…`;
+    }else{
+      if(!supportedPreferences.includes(preference))throw Error('Select a supported repair preference.');
+      data=await requestJSON('/api/repair',{
+        routine,missing:$('missing').value,preference
+      },signal);
+      if(version!==generation)return;
     }
-    if(!supportedPreferences.includes(preference))throw Error('Select a supported repair preference.');
-    const data=await requestJSON('/api/repair',{routine,missing:$('missing').value,preference},signal);
-    if(version!==generation)return;
-    if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || (data.valid && data.errors.length))throw Error('The server returned an unexpected repair response.');
+    if(typeof data.valid!=='boolean' || !Array.isArray(data.errors) || (data.valid && data.errors.length)){
+      throw Error('The server returned an unexpected repair response.');
+    }
     checkRepairedRoutine(data.routine);
     const primaryErrors=geometryErrors(data.routine);
     if(data.valid && primaryErrors.length)throw Error(primaryErrors.join(' '));
-    requestContext={preference,instruction:useAI?instruction:null};
-    candidates=[{...data,...movementMetrics(data.routine),candidate_label:'Primary repair'}];
+    if(useAI){
+      const max=data.requirements.constraints?.max_dancers_moved;
+      if(max!==undefined && movementMetrics(data.routine).changed_assignments>max){
+        throw Error('The AI repair violates the requested maximum dancer changes.');
+      }
+    }
+    requestContext={
+      preference:useAI?null:preference,
+      instruction:useAI?instruction:null,
+      requirements:useAI?data.requirements:null
+    };
+    candidates=[{
+      ...data,...movementMetrics(data.routine),
+      candidate_label:data.candidate_label||'Primary repair'
+    }];
     let skipped=0;
     for(const option of (Array.isArray(data.alternatives)?data.alternatives:[])){
-      try {
+      try{
         if(typeof option.label!=='string' || !Number.isInteger(option.formation_index) || option.formation_index<0 || option.formation_index>=routine.formations.length)throw Error('Malformed alternative');
         checkRepairedRoutine(option.routine);
         const errors=geometryErrors(option.routine);if(errors.length)throw Error('Invalid alternative');
         candidates.push({...data,routine:option.routine,alternatives:[],valid:true,errors:[],...movementMetrics(option.routine),candidate_label:`${option.label} · ${routine.formations[option.formation_index].name}`});
-      } catch {skipped++;}
+      }catch{skipped++;}
     }
     $('layout').replaceChildren(...candidates.map((candidate,i)=>new Option(candidate.candidate_label,i)));
     $('layout').value='0';$('layout').disabled=candidates.length<2;
     $('layout-note').textContent=`${candidates.length-1} alternative layouts available. Metrics and decisions apply to the selected whole-routine proposal.${skipped?' Invalid or malformed alternatives were omitted.':''}`;
     result=candidates[0];
     status(`${data.valid?'Geometry checks passed.':'Proposal failed validation.'}\n${data.errors.join('\n')}${data.note?'\n'+data.note:''}`,!data.valid);
-    if(useAI)$('ai-status').textContent=`AI selected: ${preference}. Repair received; review its validation status below.`;
-  } catch(error) {
+    if(useAI)$('ai-status').textContent=`AI priority: ${data.requirements.primary_priority}. Repair received; review the validation below.`;
+  }catch(error){
     if(version===generation && error.name!=='AbortError'){
       status(`Repair failed: ${error.message}`,true);
       if(useAI)$('ai-status').textContent=`AI-guided repair failed: ${error.message} You can use the manual preference controls.`;
     }
-  } finally {if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}}
+  }finally{
+    if(version===generation){loading=false;controller=null;$('run').disabled=false;$('ai-run').disabled=false;refresh();}
+  }
 }
 $('run').onclick=()=>generateRepair();
 $('ai-run').onclick=()=>generateRepair(true);
