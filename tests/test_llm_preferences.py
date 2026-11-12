@@ -31,14 +31,27 @@ def test_unsupported_llm_response():
 
 # Check that incomplete LLM responses are rejected
 def test_missing_preference():
-    def fake_llm(instruction):
-        return {"message": "Done"}
+    invalid_responses = [
+        {"message": "Done"},
+        {},
+        {"preference": None},
+        None,
+        [],
+        "preserve_center",
+        123
+    ]
 
-    with pytest.raises(ValueError):
-        interpret_with_llm(
-            "Keep the center dancers in place",
-            llm_call=fake_llm
-        )
+    for response in invalid_responses:
+
+        def fake_llm(instruction):
+            return response
+
+        with pytest.raises(ValueError):
+            interpret_with_llm(
+                "Keep the center dancers in place",
+                llm_call=fake_llm
+            )
+
 
 
 # Check that empty instructions are rejected
