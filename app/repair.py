@@ -6,6 +6,7 @@ from __future__ import annotations
 from math import dist, hypot
 
 
+
 def validate(
     routine: dict,
     missing: str | None = None,
@@ -69,19 +70,22 @@ def validate(
                     f"Formation {fi + 1}: {p['id']} outside stage"
                 )
 
-        # Check dancer spacing
+        # Check dancer spacing with floating-point tolerance
         for i, a in enumerate(dancers):
             for b in dancers[i + 1:]:
-                if dist(
+                distance = dist(
                     (a["x"], a["y"]),
                     (b["x"], b["y"])
-                ) < min_spacing:
+                )
+
+                if distance < min_spacing - 1e-9:
                     errors.append(
                         f"Formation {fi + 1}: "
                         f"{a['id']} and {b['id']} too close"
                     )
 
     return errors
+
 
 
 def is_two_row_formation(formation: dict) -> bool:
@@ -380,7 +384,7 @@ def is_three_column_formation(formation: dict) -> bool:
     return True
 
 
-def _column_candidates(formation: dict, missing: str, stage: dict) -> list[dict]:
+def _column_candidates(formation: dict, missing: str, stage: dict, preference: str = "minimize_changes") -> list[dict]:
     """Generate three clean column layouts and assign dancers by minimum cost.
 
     Each candidate preserves three vertical columns and their original centers.
@@ -435,17 +439,35 @@ def _column_candidates(formation: dict, missing: str, stage: dict) -> list[dict]
                       for p in assigned for o in available if p["id"] == o["id"])
         # Symmetric outside columns get an explicit aesthetic advantage.
         balance_penalty = 0 if counts == (4, 3, 4) else 2.0
-        score = movement + 0.15 * changed + balance_penalty
+
+        if preference == "preserve_center":
+            center_x = stage["width"] / 2
+            center_y = stage["height"] / 2
+            center_movement = 0.0
+            for dancer in assigned:
+                original_dancer = next(p for p in available if p["id"] == dancer["id"])
+                distance_from_center = hypot(
+                    original_dancer["x"] - center_x,
+                    original_dancer["y"] - center_y
+                )
+                dancer_movement = hypot(
+                    dancer["x"] - original_dancer["x"],
+                    dancer["y"] - original_dancer["y"]
+                )
+                center_movement += dancer_movement / (1 + distance_from_center)
+            score = movement + 0.15 * changed + balance_penalty + 5.0 * center_movement
+        else:
+            score = movement + 0.15 * changed + balance_penalty
         results.append({"label": label, "dancers": assigned, "score": score})
     return sorted(results, key=lambda item: item["score"])
 
 
-def repair_three_columns(formation: dict, missing: str) -> list[dict]:
+def repair_three_columns(formation: dict, missing: str, preference: str = "minimize_changes") -> list[dict]:
     """Return the highest-ranked valid column arrangement."""
     xs = [p["x"] for p in formation["dancers"]]
     ys = [p["y"] for p in formation["dancers"]]
     stage = {"width": max(xs)+2, "height": max(ys)+2}
-    candidates = _column_candidates(formation, missing, stage)
+    candidates = _column_candidates(formation, missing, stage, preference)
     if candidates:
         return candidates[0]["dancers"]
     return [dict(p) for p in formation["dancers"] if p["id"] != missing]
@@ -537,75 +559,177 @@ def repair_local(
 
 
 def repair(routine: dict, missing: str, preference: str = "minimize_changes") -> dict:
-    """Repair each formation using recognized shapes and a safe fallback."""
-    if not any(p["id"] == missing for f in routine["formations"] for p in f["dancers"]):
+    """Repair each formation using the appropriate repair algorithm."""
+
+    if not any(
+        p["id"] == missing
+        for f in routine["formations"]
+        for p in f["dancers"]
+    ):
         raise ValueError(f"Unknown dancer: {missing}")
+
     if preference not in ("minimize_changes", "preserve_center"):
         raise ValueError("Unsupported preference")
 
-    result = {"stage": dict(routine["stage"]), "formations": []}
+    result = {
+        "stage": dict(routine["stage"]),
+        "formations": []
+    }
+
     moved = 0
     displacement = 0.0
     symmetry_repairs = 0
+    pdf_quality = []
 
     for formation in routine["formations"]:
-        if is_three_column_formation(formation):
-            candidate = repair_three_columns(formation, missing)
-        elif is_v_formation(formation):
-            candidate = repair_v(formation, missing)
-        elif is_diamond_formation(formation):
-            candidate = repair_diamond(formation, missing)
-        elif is_diagonal_formation(formation):
-            candidate = repair_diagonal(formation, missing)
-        elif is_staggered_formation(formation):
-            candidate = repair_staggered(formation, missing)
-        elif is_two_row_formation(formation):
-            candidate = repair_two_rows(formation, missing)
-        else:
-            candidate = None
 
-        if candidate is not None:
-            trial = {"stage": result["stage"], "formations": [{"name": formation["name"], "dancers": candidate}]}
-            if not validate(trial):
-                people = candidate
-                symmetry_repairs += 1
+        # Use the adaptive optimizer for every PDF-imported formation.
+        if "source_page" in formation:
+            from .pdf_repair import repair_pdf_formation
+
+            people, quality = repair_pdf_formation(
+                formation,
+                missing,
+                preference,
+                result["stage"]
+            )
+
+            pdf_quality.append({
+                "formation": formation["name"],
+                **quality
+            })
+
+        else:
+            # Keep the existing shape-aware algorithms for manual formations.
+            if is_three_column_formation(formation):
+                candidate = repair_three_columns(formation, missing, preference)
+
+            elif is_v_formation(formation):
+                candidate = repair_v(formation, missing)
+
+            elif is_diamond_formation(formation):
+                candidate = repair_diamond(formation, missing)
+
+            elif is_diagonal_formation(formation):
+                candidate = repair_diagonal(formation, missing)
+
+            elif is_staggered_formation(formation):
+                candidate = repair_staggered(formation, missing)
+
+            elif is_two_row_formation(formation):
+                candidate = repair_two_rows(formation, missing)
+
             else:
-                people = repair_local(formation, missing, preference, result["stage"])
-        else:
-            people = repair_local(formation, missing, preference, result["stage"])
+                candidate = None
 
-        before = {p["id"]: p for p in formation["dancers"]}
+            if candidate is not None:
+                trial = {
+                    "stage": result["stage"],
+                    "formations": [{
+                        "name": formation["name"],
+                        "dancers": candidate
+                    }]
+                }
+
+                if not validate(trial):
+                    people = candidate
+                    symmetry_repairs += 1
+                else:
+                    people = repair_local(
+                        formation,
+                        missing,
+                        preference,
+                        result["stage"]
+                    )
+
+            else:
+                people = repair_local(
+                    formation,
+                    missing,
+                    preference,
+                    result["stage"]
+                )
+
+        # Calculate how many dancers moved and their total displacement.
+        before = {
+            p["id"]: p
+            for p in formation["dancers"]
+        }
+
         for p in people:
-            delta = dist((p["x"],p["y"]), (before[p["id"]]["x"],before[p["id"]]["y"]))
+            delta = dist(
+                (p["x"], p["y"]),
+                (before[p["id"]]["x"], before[p["id"]]["y"])
+            )
+
             if delta > 0.00001:
                 moved += 1
                 displacement += delta
-        result["formations"].append({"name": formation["name"], "dancers": people})
 
+        result["formations"].append({
+            "name": formation["name"],
+            "dancers": people
+        })
+
+    # Validate the entire repaired routine.
     errors = validate(result, missing)
-    # Offer alternative layouts for the currently supported three-column shape.
+
+    # Preserve alternative layouts for the original three-column demo.
     alternatives = []
-    if len(routine["formations"]) > 0:
-        for idx, formation in enumerate(routine["formations"]):
-            if not is_three_column_formation(formation):
+
+    for idx, formation in enumerate(routine["formations"]):
+
+        if "source_page" in formation:
+            continue
+
+        if not is_three_column_formation(formation):
+            continue
+
+        for option in _column_candidates(
+            formation,
+            missing,
+            result["stage"],
+            preference
+        ):
+            alternate = {
+                "stage": dict(result["stage"]),
+                "formations": [
+                    {
+                        "name": f["name"],
+                        "dancers": [
+                            dict(p) for p in f["dancers"]
+                        ]
+                    }
+                    for f in result["formations"]
+                ]
+            }
+
+            alternate["formations"][idx]["dancers"] = option["dancers"]
+
+            if validate(alternate, missing):
                 continue
-            for option in _column_candidates(formation, missing, result["stage"]):
-                alternate = {"stage": dict(result["stage"]),
-                             "formations": [{"name": f["name"],
-                                             "dancers": [dict(p) for p in f["dancers"]]}
-                                            for f in result["formations"]]}
-                alternate["formations"][idx]["dancers"] = option["dancers"]
-                if validate(alternate, missing):
-                    continue
-                alternatives.append({"label": option["label"],
-                                     "routine": alternate, "formation_index": idx})
-            break
+
+            alternatives.append({
+                "label": option["label"],
+                "routine": alternate,
+                "formation_index": idx
+            })
+
+        break
+
     return {
-        "routine": result, "valid": not errors, "errors": errors,
+        "routine": result,
+        "valid": not errors,
+        "errors": errors,
         "alternatives": alternatives,
-        "changed_assignments": moved, "total_displacement": round(displacement, 4),
-        "removed_dancer": missing, "method": "symmetry-aware formation repair",
-        "note": (f"Shape-aware repairs: {symmetry_repairs}. "
-                 "Unrecognized formations use local geometric adjustments. "
-                 "Transitions and choreography still require captain review.")
+        "pdf_repair_quality": pdf_quality,
+        "changed_assignments": moved,
+        "total_displacement": round(displacement, 4),
+        "removed_dancer": missing,
+        "method": "symmetry-aware formation repair",
+        "note": (
+            f"Shape-aware repairs: {symmetry_repairs}. "
+            "PDF-imported formations use adaptive geometric repair. "
+            "Transitions and choreography still require captain review."
+        )
     }

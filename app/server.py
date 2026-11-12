@@ -1,11 +1,12 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .repair import repair, validate
+from .pdf_import import MAX_PDF_BYTES, PDFImportError, import_sway_pdf
 from .gemini_request import get_gemini_preference as get_ai_preference
 
 app = FastAPI(title="FormationRescue Alpha")
@@ -72,8 +73,24 @@ def ai_preference_api(request: AIPreferenceRequest):
         ) from exc
 
     except Exception as exc:
-        # Handle AI service errors without crashing the website
+        import traceback
+        traceback.print_exc()
+
         raise HTTPException(
             status_code=503,
             detail="AI service is currently unavailable."
         ) from exc
+
+
+@app.post("/api/import/sway-pdf")
+def import_pdf_api(file: UploadFile):
+    """Extract a reviewable draft; do not repair or store the uploaded PDF."""
+    try:
+        content = file.file.read(MAX_PDF_BYTES + 1)
+        if len(content) > MAX_PDF_BYTES:
+            raise HTTPException(status_code=413, detail="PDF exceeds the 10 MB upload limit.")
+        return import_sway_pdf(content)
+    except PDFImportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        file.file.close()

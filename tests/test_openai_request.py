@@ -24,22 +24,48 @@ def test_successful_request():
 
 
 # Test that the user's instruction is sent to the AI
+
 def test_instruction_is_sent():
     calls = []
 
     class FakeResponses:
         def create(self, **kwargs):
             calls.append(kwargs)
+
             return SimpleNamespace(
                 output_text='{"preference": "minimize_changes"}'
             )
 
-    fake_client = SimpleNamespace(responses=FakeResponses())
+    fake_client = SimpleNamespace(
+        responses=FakeResponses()
+    )
 
-    get_ai_preference("Minimize movement", client=fake_client)
+    instructions = [
+        "Minimize movement",
+        "Keep the center dancers!",
+        "Minimize changes\nPreserve symmetry"
+    ]
 
-    assert len(calls) == 1
-    assert "Minimize movement" in str(calls[0]["input"])
+    for instruction in instructions:
+        result = get_ai_preference(
+            instruction,
+            client=fake_client
+        )
+
+        assert result["preference"] == "minimize_changes"
+
+    assert len(calls) == len(instructions)
+
+    for call, instruction in zip(calls, instructions):
+        assert call["input"] == instruction
+        assert call["model"] == "gpt-4.1-mini"
+
+        system_prompt = call["instructions"]
+
+        assert "minimize_changes" in system_prompt
+        assert "preserve_center" in system_prompt
+        assert "JSON" in system_prompt
+
 
 
 # Test that empty instructions are rejected

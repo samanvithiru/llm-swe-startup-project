@@ -37,3 +37,4 @@ def get_ai_preference(instruction: str, client=None) -> dict:
 
     # Parse and validate the AI response
     return parse_llm_preference(response.output_text)
+
