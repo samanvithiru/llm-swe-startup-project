@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from math import atan2, cos, hypot, sin
 
+import sys
+
 
 # --------------------------------------------------
 # BASIC HELPERS
@@ -506,13 +508,15 @@ def _repair_separated_group(original_all, missing, preference, stage):
     print(
         "DEBUG: SUBGROUP MEMBERS =",
         [p["id"] for p in affected],
-        flush=True
+        flush=True,
+        file=sys.stderr,
     )
 
     print(
         "DEBUG: SUBGROUP SHIFT =",
         round(shift, 4),
-        flush=True
+        flush=True,
+        file=sys.stderr,
     )
 
     return candidate, {
@@ -726,7 +730,8 @@ def repair_pdf_formation(formation, missing, preference, stage):
     print(
         "DEBUG: REPAIRING FORMATION =",
         formation.get("name", formation.get("source_page", "unknown")),
-        flush=True
+        flush=True,
+        file=sys.stderr,
     )
 
     # First try repairing a separated, staggered subgroup.
@@ -740,7 +745,8 @@ def repair_pdf_formation(formation, missing, preference, stage):
     print(
         "DEBUG: SUBGROUP FOUND =",
         subgroup_repair is not None,
-        flush=True
+        flush=True,
+        file=sys.stderr,
     )
 
     if subgroup_repair is not None:
@@ -908,13 +914,15 @@ def repair_pdf_formation(formation, missing, preference, stage):
         if fallback is not None:
             print(
                 "DEBUG: USING LOCAL FALLBACK",
-                flush=True
+                flush=True,
+                file=sys.stderr,
             )
             return fallback
 
         print(
             "DEBUG: PRESERVING ORIGINAL POSITIONS",
-            flush=True
+            flush=True,
+            file=sys.stderr,
         )
 
         return original, {
@@ -939,7 +947,8 @@ def repair_pdf_formation(formation, missing, preference, stage):
     print(
         "DEBUG: SELECTED METHOD =",
         label,
-        flush=True
+        flush=True,
+        file=sys.stderr,
     )
 
     return best, {

@@ -64,16 +64,24 @@ test('manual center preference is sent to repair and saved with the review',asyn
   assert.equal(payload.preference,'preserve_center');p.el('approve').onclick();
   assert.equal(JSON.parse([...p.storage.values()][0])[0].request.preference,'preserve_center');
 });
-test('AI instruction is interpreted before repairing and unsupported output is rejected',async()=>{
+test('AI instructions use the advanced repair route and unsupported output is rejected',async()=>{
   const p=page();load(p);response(p);const fetch=p.context.fetch,calls=[];
-  p.el('ai-instruction').value='Keep center dancers';
+  p.el('ai-instruction').value='Prioritize symmetry';
   p.context.fetch=async(url,options)=>{
     calls.push([url,JSON.parse(options.body)]);
-    return url==='/api/ai-preference'?{ok:true,json:async()=>({preference:'preserve_center'})}:fetch();
+    const old=await fetch();const body=await old.json();
+    return {ok:true,json:async()=>({...body,requirements:{primary_priority:'symmetry',secondary_priorities:[],constraints:{}}})};
   };
-  await p.el('ai-run').onclick();assert.equal(calls.length,2);assert.equal(calls[0][1].instruction,'Keep center dancers');assert.equal(calls[1][1].preference,'preserve_center');assert.equal(p.el('approve').disabled,false);
-  p.context.fetch=async()=>({ok:true,json:async()=>({preference:'invented'})});await p.el('ai-run').onclick();
-  assert.match(p.el('ai-status').textContent,/unsupported/);assert.equal(p.el('approve').disabled,true);assert.equal(p.el('ai-run').disabled,false);
+  await p.el('ai-run').onclick();
+  assert.equal(calls.length,1);
+  assert.equal(calls[0][0],'/api/repair-ai');
+  assert.equal(calls[0][1].instruction,'Prioritize symmetry');
+  assert.equal(p.el('approve').disabled,false);
+  p.context.fetch=async()=>({ok:false,json:async()=>({detail:'Unsupported AI requirement'})});
+  await p.el('ai-run').onclick();
+  assert.match(p.el('ai-status').textContent,/unsupported/i);
+  assert.equal(p.el('approve').disabled,true);
+  assert.equal(p.el('ai-run').disabled,false);
 });
 test('empty instructions and AI service failures do not trigger repair',async()=>{
   const p=page();load(p);let calls=0;
@@ -125,13 +133,15 @@ test('actual backend alternatives integrate with a three-column fixture and sele
   }
   p.el('reject').onclick();assert.equal(JSON.parse([...p.storage.values()][0])[0].proposal.routine.formations[0].dancers.length,11);
 });
-test('actual AI endpoint contract chains into actual repair and exposes backend validation errors',async()=>{
+test('actual advanced AI endpoint reaches repair and exposes validation errors',async()=>{
   const p=page();load(p);p.context.fetch=apiFetch;p.el('ai-instruction').value='Keep the center';
-  await p.el('ai-run').onclick();assert.equal(p.el('approve').disabled,false,p.el('status').textContent);assert.equal(p.run('requestContext.preference'),'preserve_center');
+  await p.el('ai-run').onclick();
+  assert.equal(p.el('approve').disabled,false,p.el('status').textContent);
+  assert.equal(p.run('requestContext.requirements.primary_priority'),'preserve_center');
   p.context.close=structuredClone(source);p.context.close.formations[0].dancers[1].x=2.1;
-  p.run("loadRoutine(close,'Spacing violation')");await p.el('run').onclick();assert.match(p.el('status').textContent,/too close/);assert.equal(p.el('approve').disabled,true);
+  p.run("loadRoutine(close,'Spacing violation')");await p.el('run').onclick();
+  assert.match(p.el('status').textContent,/too close/);assert.equal(p.el('approve').disabled,true);
 });
-
 test('invalid geometry alternatives are omitted and changed stage responses cannot be approved',async()=>{
   const p=page();load(p);response(p);const data=await (await p.context.fetch()).json();
   const colliding={stage:{width:10,height:6},formations:[{name:'Opening',dancers:[{id:'B',x:4,y:2},{id:'C',x:4.1,y:2}]}]};

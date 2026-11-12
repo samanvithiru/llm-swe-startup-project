@@ -20,6 +20,18 @@ def fake_ai(instruction):
 
 
 server.get_ai_preference = fake_ai
+
+
+def fake_ai_requirements(instruction):
+    if not instruction.strip():
+        raise ValueError("Please enter a repair instruction.")
+    return {
+        "primary_priority": "preserve_center",
+        "secondary_priorities": [],
+        "constraints": {},
+    }
+
+server.get_ai_requirements = fake_ai_requirements
 request = json.load(sys.stdin)
 with TestClient(server.app) as client:
     if request["url"] == "/api/import/sway-pdf":
